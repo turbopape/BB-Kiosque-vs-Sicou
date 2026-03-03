@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Street Fighter</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+  canvas { object-fit: contain; max-width: 100vw; max-height: 100vh; image-rendering: auto; }
+</style>
+</head>
+<body>
+<canvas id="game" width="1280" height="720"></canvas>
+<script>
+// ============================================================
+// CONFIG — all tunable constants
+// ============================================================
+const CONFIG = {
+  MOVE_SPEED: 5,
+  GROUND_Y: 500,
+  STAGE_LEFT: 40,
+  STAGE_RIGHT: 1240,
+  PUSH_BACK: 8,
+
+  PUNCH_STARTUP: 4,
+  PUNCH_ACTIVE: 3,
+  PUNCH_RECOVERY: 8,
+  PUNCH_DAMAGE: 8,
+  PUNCH_RANGE: 70,
+
+  CLOSE_PUNCH_STARTUP: 3,
+  CLOSE_PUNCH_ACTIVE: 3,
+  CLOSE_PUNCH_RECOVERY: 6,
+  CLOSE_PUNCH_DAMAGE: 6,
+  CLOSE_PUNCH_RANGE: 60,
+
+  KICK_STARTUP: 6,
+  KICK_ACTIVE: 4,
+  KICK_RECOVERY: 10,
+  KICK_DAMAGE: 12,
+  KICK_RANGE: 90,
+
+  FIREBALL_STARTUP: 12,
+  FIREBALL_SPEED: 7,
+  FIREBALL_DAMAGE: 14,
+  FIREBALL_COOLDOWN: 45,
+
+  JUMP_VELOCITY: -18,
+  GRAVITY: 0.8,
+
+  HIT_STUN: 15,
+  BLOCK_DAMAGE_MULT: 0.2,
+
+  ROUND_TIME: 99,
+  ROUNDS_TO_WIN: 2,
+};
+
+// ============================================================
+// CANVAS SETUP
+// ============================================================
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = 1280, H = 720;
+
+// ============================================================
+// ASSET LOADING — tries PNG files, falls back to placeholders
+// ============================================================
+const ASSET_PATHS = {
+  bg: 'assets/background.png',
+  p1: {
+    idle: 'assets/player1/idle.png',
+    walk: 'assets/player1/walk.png',
+    punch: 'assets/player1/punch.png',
+    closePunch: 'assets/player1/close-punch.png',
+    kick: 'assets/player1/kick.png',
+    fireballPose: 'assets/player1/fireball-pose.png',
+    hit: 'assets/player1/hit.png',
+    block: 'assets/player1/block.png',
+    victory: 'assets/player1/victory.png',
+  },
+  p2: {
+    idle: 'assets/player2/idle.png',
+    walk: 'assets/player2/walk.png',
+    punch: 'assets/player2/punch.png',
+    closePunch: 'assets/player2/close-punch.png',
+    kick: 'assets/player2/kick.png',
+    fireballPose: 'assets/player2/fireball-pose.png',
+    hit: 'assets/player2/hit.png',
+    block: 'assets/player2/block.png',
+    victory: 'assets/player2/victory.png',
+  },
+  fx: {
+    fireballP1: 'assets/fx/fireball-p1.png',
+    fireballP2: 'assets/fx/fireball-p2.png',
+    hitSpark: 'assets/fx/hit-spark.png',
+  }
+};
+
+const images = {};
+let assetsLoaded = 0;
+let assetsTotal = 0;
+let assetsReady = false;
+
+function flattenPaths(obj, prefix = '') {
+  const entries = [];
+  for (const [k, v] of Object.entries(obj)) {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (typeof v === 'string') entries.push([key, v]);
+    else entries.push(...flattenPaths(v, key));
+  }
+  return entries;
+}
+
+function setNestedImage(key, img) {
+  const parts = key.split('.');
+  let target = images;
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (!target[parts[i]]) target[parts[i]] = {};
+    target = target[parts[i]];
+  }
+  target[parts[parts.length - 1]] = img;
+}
+
+function getNestedImage(key) {
+  const parts = key.split('.');
+  let target = images;
+  for (const p of parts) {
+    if (!target || !target[p]) return null;
+    target = target[p];
+  }
+  return target;
+}
+
+// Generate placeholder canvases
+function generatePlaceholders() {
+  // Background
+  const bgC = document.createElement('canvas');
+  bgC.width = W; bgC.height = H;
+  const bgCtx = bgC.getContext('2d');
+  const grad = bgCtx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#1a1a2e');
+  grad.addColorStop(0.6, '#16213e');
+  grad.addColorStop(1, '#0f3460');
+  bgCtx.fillStyle = grad;
+  bgCtx.fillRect(0, 0, W, H);
+  // Grid lines
+  bgCtx.strokeStyle = 'rgba(255,255,255,0.05)';
+  bgCtx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { bgCtx.beginPath(); bgCtx.moveTo(x, 0); bgCtx.lineTo(x, H); bgCtx.stroke(); }
+  for (let y = 0; y < H; y += 40) { bgCtx.beginPath(); bgCtx.moveTo(0, y); bgCtx.lineTo(W, y); bgCtx.stroke(); }
+  // Ground line
+  bgCtx.strokeStyle = 'rgba(255,255,255,0.3)';
+  bgCtx.lineWidth = 2;
+  bgCtx.beginPath();
+  bgCtx.moveTo(0, CONFIG.GROUND_Y + 200);
+  bgCtx.lineTo(W, CONFIG.GROUND_Y + 200);
+  bgCtx.stroke();
+  // Floor gradient
+  const floorGrad = bgCtx.createLinearGradient(0, CONFIG.GROUND_Y + 200, 0, H);
+  floorGrad.addColorStop(0, 'rgba(50,50,80,0.8)');
+  floorGrad.addColorStop(1, 'rgba(20,20,40,0.9)');
+  bgCtx.fillStyle = floorGrad;
+  bgCtx.fillRect(0, CONFIG.GROUND_Y + 200, W, H - CONFIG.GROUND_Y - 200);
+  if (!getNestedImage('bg')) setNestedImage('bg', bgC);
+
+  // Character placeholder generator
+  function makeCharSprite(color, label, pose) {
+    const c = document.createElement('canvas');
+    c.width = 120; c.height = 200;
+    const cx = c.getContext('2d');
+
+    // Body
+    cx.fillStyle = color;
+    cx.fillRect(15, 0, 90, 160);
+
+    // Head
+    cx.beginPath();
+    cx.arc(60, 25, 25, 0, Math.PI * 2);
+    cx.fill();
+
+    // Legs
+    cx.fillRect(20, 160, 35, 40);
+    cx.fillRect(65, 160, 35, 40);
+
+    // Pose-specific details
+    cx.strokeStyle = '#fff';
+    cx.lineWidth = 3;
+    if (pose === 'punch') {
+      cx.fillStyle = color;
+      cx.fillRect(105, 60, 50, 20);
+      cx.strokeRect(105, 60, 50, 20);
+    } else if (pose === 'closePunch') {
+      // Short elbow strike — arm bent close to body
+      cx.fillStyle = color;
+      cx.fillRect(85, 50, 30, 22);
+      cx.strokeRect(85, 50, 30, 22);
+      // Elbow highlight
+      cx.fillStyle = '#fff';
+      cx.beginPath();
+      cx.arc(115, 61, 6, 0, Math.PI * 2);
+      cx.fill();
+    } else if (pose === 'kick') {
+      cx.fillStyle = color;
+      cx.fillRect(100, 140, 55, 18);
+      cx.strokeRect(100, 140, 55, 18);
+    } else if (pose === 'fireballPose') {
+      cx.fillStyle = '#ff0';
+      cx.beginPath();
+      cx.arc(130, 80, 15, 0, Math.PI * 2);
+      cx.fill();
+      cx.stroke();
+    } else if (pose === 'block') {
+      cx.strokeStyle = 'rgba(255,255,255,0.6)';
+      cx.lineWidth = 4;
+      cx.strokeRect(5, -5, 110, 210);
+    } else if (pose === 'hit') {
+      cx.fillStyle = 'rgba(255,255,255,0.3)';
+      cx.fillRect(15, 0, 90, 160);
+    } else if (pose === 'walk') {
+      // Offset legs
+      cx.fillStyle = color;
+      cx.clearRect(20, 160, 35, 40);
+      cx.clearRect(65, 160, 35, 40);
+      cx.fillRect(10, 160, 35, 40);
+      cx.fillRect(75, 160, 35, 40);
+    } else if (pose === 'victory') {
+      // Arms up
+      cx.fillStyle = color;
+      cx.fillRect(0, 10, 20, 60);
+      cx.fillRect(100, 10, 20, 60);
+    }
+
+    // Label
+    cx.fillStyle = '#fff';
+    cx.font = 'bold 24px monospace';
+    cx.textAlign = 'center';
+    cx.fillText(label, 60, 105);
+
+    // Pose label
+    cx.font = '11px monospace';
+    cx.fillText(pose, 60, 125);
+
+    return c;
+  }
+
+  const poses = ['idle', 'walk', 'punch', 'closePunch', 'kick', 'fireballPose', 'hit', 'block', 'victory'];
+  for (const pose of poses) {
+    if (!getNestedImage(`p1.${pose}`)) setNestedImage(`p1.${pose}`, makeCharSprite('#c0392b', 'P1', pose));
+    if (!getNestedImage(`p2.${pose}`)) setNestedImage(`p2.${pose}`, makeCharSprite('#2980b9', 'P2', pose));
+  }
+
+  // Fireball placeholders
+  function makeFireball(color) {
+    const c = document.createElement('canvas');
+    c.width = 60; c.height = 30;
+    const cx = c.getContext('2d');
+    cx.fillStyle = color;
+    cx.beginPath();
+    cx.ellipse(30, 15, 28, 13, 0, 0, Math.PI * 2);
+    cx.fill();
+    cx.strokeStyle = '#fff';
+    cx.lineWidth = 2;
+    cx.stroke();
+    // Inner glow
+    cx.fillStyle = 'rgba(255,255,255,0.4)';
+    cx.beginPath();
+    cx.ellipse(30, 15, 14, 7, 0, 0, Math.PI * 2);
+    cx.fill();
+    return c;
+  }
+  if (!getNestedImage('fx.fireballP1')) setNestedImage('fx.fireballP1', makeFireball('#f39c12'));
+  if (!getNestedImage('fx.fireballP2')) setNestedImage('fx.fireballP2', makeFireball('#00bcd4'));
+
+  // Hit spark placeholder
+  const hsc = document.createElement('canvas');
+  hsc.width = 60; hsc.height = 60;
+  const hsx = hsc.getContext('2d');
+  hsx.fillStyle = '#fff';
+  for (let i = 0; i < 8; i++) {
+    hsx.save();
+    hsx.translate(30, 30);
+    hsx.rotate((Math.PI * 2 / 8) * i);
+    hsx.fillRect(-3, 0, 6, 20);
+    hsx.restore();
+  }
+  if (!getNestedImage('fx.hitSpark')) setNestedImage('fx.hitSpark', hsc);
+}
+
+async function loadAssets() {
+  const entries = flattenPaths(ASSET_PATHS);
+  assetsTotal = entries.length;
+
+  // Try loading real SVGs first
+  const results = await Promise.all(entries.map(([key, src]) =>
+    new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => { assetsLoaded++; resolve([key, img]); };
+      img.onerror = () => { assetsLoaded++; resolve([key, null]); };
+      img.src = src;
+    })
+  ));
+
+  // Set loaded images
+  for (const [key, img] of results) {
+    if (img) setNestedImage(key, img);
+  }
+
+  // Generate placeholders for anything that didn't load
+  generatePlaceholders();
+
+  assetsReady = true;
+}
+
+// ============================================================
+// AUDIO — procedural retro sound effects
+// ============================================================
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playSound(freq, freqEnd, duration, type = 'square', vol = 0.15) {
+  ensureAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(freqEnd, audioCtx.currentTime + duration);
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function playHitSound() { playSound(300, 80, 0.12, 'square', 0.15); }
+function playBlockSound() { playSound(150, 100, 0.08, 'triangle', 0.1); }
+function playFireballSound() { playSound(400, 200, 0.25, 'sawtooth', 0.1); }
+function playKOSound() {
+  playSound(500, 100, 0.4, 'square', 0.2);
+  setTimeout(() => playSound(300, 60, 0.5, 'square', 0.15), 200);
+}
+function playRoundSound() {
+  playSound(440, 440, 0.15, 'square', 0.12);
+  setTimeout(() => playSound(660, 660, 0.2, 'square', 0.12), 180);
+}
+
+// ============================================================
+// BACKGROUND MUSIC — procedural chiptune loop
+// ============================================================
+let bgmNodes = null;
+let bgmPlaying = false;
+
+function startBGM() {
+  if (bgmPlaying) return;
+  ensureAudio();
+  bgmPlaying = true;
+
+  const masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.08;
+  masterGain.connect(audioCtx.destination);
+
+  // Bass line — looping pattern
+  const bassNotes = [
+    // bar 1 (aggressive)
+    130.81, 0, 130.81, 146.83, 164.81, 0, 146.83, 130.81,
+    // bar 2
+    174.61, 0, 174.61, 164.81, 146.83, 0, 130.81, 0,
+    // bar 3 (tension)
+    116.54, 0, 116.54, 130.81, 146.83, 0, 164.81, 174.61,
+    // bar 4 (resolve)
+    146.83, 0, 130.81, 0, 146.83, 164.81, 130.81, 0,
+  ];
+
+  // Melody — higher octave lead
+  const melodyNotes = [
+    // bar 1
+    523.25, 0, 659.25, 523.25, 0, 783.99, 659.25, 0,
+    // bar 2
+    698.46, 659.25, 0, 523.25, 587.33, 0, 523.25, 0,
+    // bar 3
+    466.16, 0, 523.25, 587.33, 0, 659.25, 698.46, 0,
+    // bar 4
+    587.33, 0, 523.25, 0, 587.33, 659.25, 523.25, 0,
+  ];
+
+  const bpm = 160;
+  const stepDuration = 60 / bpm / 2; // 16th notes
+  const loopLength = bassNotes.length * stepDuration;
+
+  // Bass oscillator
+  const bassOsc = audioCtx.createOscillator();
+  const bassGain = audioCtx.createGain();
+  bassOsc.type = 'triangle';
+  bassGain.gain.value = 0;
+  bassOsc.connect(bassGain).connect(masterGain);
+
+  // Melody oscillator
+  const melodyOsc = audioCtx.createOscillator();
+  const melodyGain = audioCtx.createGain();
+  melodyOsc.type = 'square';
+  melodyGain.gain.value = 0;
+  melodyOsc.connect(melodyGain).connect(masterGain);
+
+  // Noise channel for hi-hat rhythm
+  const bufferSize = audioCtx.sampleRate * 2;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const noiseData = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) noiseData[i] = Math.random() * 2 - 1;
+
+  const noiseSource = audioCtx.createBufferSource();
+  noiseSource.buffer = noiseBuffer;
+  noiseSource.loop = true;
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.value = 0;
+  const noiseFilter = audioCtx.createBiquadFilter();
+  noiseFilter.type = 'highpass';
+  noiseFilter.frequency.value = 8000;
+  noiseSource.connect(noiseFilter).connect(noiseGain).connect(masterGain);
+
+  // Schedule notes in a loop
+  let scheduleAhead = 0.1; // seconds to look ahead
+  let nextStepTime = audioCtx.currentTime + 0.05;
+  let currentStep = 0;
+
+  function scheduleStep() {
+    const t = nextStepTime;
+    const bassFreq = bassNotes[currentStep % bassNotes.length];
+    const melodyFreq = melodyNotes[currentStep % melodyNotes.length];
+
+    // Bass
+    if (bassFreq > 0) {
+      bassOsc.frequency.setValueAtTime(bassFreq, t);
+      bassGain.gain.setValueAtTime(0.7, t);
+      bassGain.gain.exponentialRampToValueAtTime(0.01, t + stepDuration * 0.9);
+    } else {
+      bassGain.gain.setValueAtTime(0.001, t);
+    }
+
+    // Melody
+    if (melodyFreq > 0) {
+      melodyOsc.frequency.setValueAtTime(melodyFreq, t);
+      melodyGain.gain.setValueAtTime(0.3, t);
+      melodyGain.gain.exponentialRampToValueAtTime(0.01, t + stepDuration * 0.8);
+    } else {
+      melodyGain.gain.setValueAtTime(0.001, t);
+    }
+
+    // Hi-hat on every other step
+    if (currentStep % 2 === 0) {
+      noiseGain.gain.setValueAtTime(0.25, t);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    }
+    // Accent on beat
+    if (currentStep % 4 === 0) {
+      noiseGain.gain.setValueAtTime(0.45, t);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    }
+
+    currentStep++;
+    nextStepTime += stepDuration;
+  }
+
+  bassOsc.start();
+  melodyOsc.start();
+  noiseSource.start();
+
+  const schedulerInterval = setInterval(() => {
+    if (!bgmPlaying) return;
+    while (nextStepTime < audioCtx.currentTime + scheduleAhead) {
+      scheduleStep();
+    }
+  }, 25);
+
+  bgmNodes = { bassOsc, melodyOsc, noiseSource, masterGain, schedulerInterval };
+}
+
+function stopBGM() {
+  if (!bgmPlaying || !bgmNodes) return;
+  bgmPlaying = false;
+  clearInterval(bgmNodes.schedulerInterval);
+  bgmNodes.masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+  const nodes = bgmNodes;
+  setTimeout(() => {
+    try { nodes.bassOsc.stop(); } catch(e) {}
+    try { nodes.melodyOsc.stop(); } catch(e) {}
+    try { nodes.noiseSource.stop(); } catch(e) {}
+  }, 400);
+  bgmNodes = null;
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+const keysDown = new Set();
+const keysJustPressed = new Set();
+
+window.addEventListener('keydown', e => {
+  const gameKeys = ['KeyA','KeyD','KeyS','KeyW','KeyF','KeyG','KeyH',
+    'ArrowLeft','ArrowRight','ArrowDown','ArrowUp','KeyJ','KeyK','KeyL',
+    'Numpad1','Numpad2','Numpad3','Space','Enter'];
+  if (gameKeys.includes(e.code)) e.preventDefault();
+
+  if (!keysDown.has(e.code)) keysJustPressed.add(e.code);
+  keysDown.add(e.code);
+});
+
+window.addEventListener('keyup', e => {
+  keysDown.delete(e.code);
+});
+
+function readInputs(playerNum) {
+  if (playerNum === 1) {
+    return {
+      left: keysDown.has('KeyA'),
+      right: keysDown.has('KeyD'),
+      jump: keysJustPressed.has('KeyW'),
+      punch: keysJustPressed.has('KeyF'),
+      kick: keysJustPressed.has('KeyG'),
+      fireball: keysJustPressed.has('KeyH'),
+      block: keysDown.has('KeyS'),
+    };
+  } else {
+    return {
+      left: keysDown.has('ArrowLeft'),
+      right: keysDown.has('ArrowRight'),
+      jump: keysJustPressed.has('ArrowUp'),
+      punch: keysJustPressed.has('KeyJ') || keysJustPressed.has('Numpad1'),
+      kick: keysJustPressed.has('KeyK') || keysJustPressed.has('Numpad2'),
+      fireball: keysJustPressed.has('KeyL') || keysJustPressed.has('Numpad3'),
+      block: keysDown.has('ArrowDown'),
+    };
+  }
+}
+
+function anyKeyJustPressed() {
+  return keysJustPressed.size > 0;
+}
+
+// ============================================================
+// FIGHTER
+// ============================================================
+function createFighter(playerNum, startX, facingRight) {
+  return {
+    playerNum,
+    x: startX,
+    y: CONFIG.GROUND_Y,
+    width: 120,
+    height: 200,
+    facingRight,
+    vy: 0,
+    groundY: CONFIG.GROUND_Y,
+    airborne: false,
+    state: 'idle',
+    stateTimer: 0,
+    health: 100,
+    maxHealth: 100,
+    canAct: true,
+    isAttacking: false,
+    attackHitbox: null,
+    attackDamage: 0,
+    hasHitThisAttack: false,
+    currentSprite: 'idle',
+    spriteFlash: 0,
+    fireballCooldown: 0,
+    // Attack phase tracking
+    attackPhase: '', // 'startup', 'active', 'recovery'
+    attackStartup: 0,
+    attackActive: 0,
+    attackRecovery: 0,
+  };
+}
+
+function startPunch(fighter) {
+  fighter.state = 'punching';
+  fighter.canAct = false;
+  fighter.isAttacking = false;
+  fighter.hasHitThisAttack = false;
+  fighter.attackDamage = CONFIG.PUNCH_DAMAGE;
+  fighter.attackPhase = 'startup';
+  fighter.attackStartup = CONFIG.PUNCH_STARTUP;
+  fighter.attackActive = CONFIG.PUNCH_ACTIVE;
+  fighter.attackRecovery = CONFIG.PUNCH_RECOVERY;
+  fighter.stateTimer = CONFIG.PUNCH_STARTUP + CONFIG.PUNCH_ACTIVE + CONFIG.PUNCH_RECOVERY;
+  fighter.currentSprite = 'punch';
+}
+
+function startClosePunch(fighter) {
+  fighter.state = 'closePunching';
+  fighter.canAct = false;
+  fighter.isAttacking = false;
+  fighter.hasHitThisAttack = false;
+  fighter.attackDamage = CONFIG.CLOSE_PUNCH_DAMAGE;
+  fighter.attackPhase = 'startup';
+  fighter.attackStartup = CONFIG.CLOSE_PUNCH_STARTUP;
+  fighter.attackActive = CONFIG.CLOSE_PUNCH_ACTIVE;
+  fighter.attackRecovery = CONFIG.CLOSE_PUNCH_RECOVERY;
+  fighter.stateTimer = CONFIG.CLOSE_PUNCH_STARTUP + CONFIG.CLOSE_PUNCH_ACTIVE + CONFIG.CLOSE_PUNCH_RECOVERY;
+  fighter.currentSprite = 'closePunch';
+}
+
+function startKick(fighter) {
+  fighter.state = 'kicking';
+  fighter.canAct = false;
+  fighter.isAttacking = false;
+  fighter.hasHitThisAttack = false;
+  fighter.attackDamage = CONFIG.KICK_DAMAGE;
+  fighter.attackPhase = 'startup';
+  fighter.attackStartup = CONFIG.KICK_STARTUP;
+  fighter.attackActive = CONFIG.KICK_ACTIVE;
+  fighter.attackRecovery = CONFIG.KICK_RECOVERY;
+  fighter.stateTimer = CONFIG.KICK_STARTUP + CONFIG.KICK_ACTIVE + CONFIG.KICK_RECOVERY;
+  fighter.currentSprite = 'kick';
+}
+
+function startFireball(fighter, fireballs) {
+  if (fighter.fireballCooldown > 0) return;
+  fighter.state = 'fireball';
+  fighter.canAct = false;
+  fighter.stateTimer = CONFIG.FIREBALL_STARTUP;
+  fighter.currentSprite = 'fireballPose';
+  fighter.fireballCooldown = CONFIG.FIREBALL_COOLDOWN;
+  // Spawn fireball after startup delay
+  fighter._spawnFireball = CONFIG.FIREBALL_STARTUP;
+}
+
+function handleAttackFrames(fighter) {
+  const total = fighter.attackStartup + fighter.attackActive + fighter.attackRecovery;
+  const elapsed = total - fighter.stateTimer;
+
+  if (elapsed < fighter.attackStartup) {
+    // Startup — no hitbox yet
+    fighter.attackPhase = 'startup';
+    fighter.isAttacking = false;
+    fighter.attackHitbox = null;
+  } else if (elapsed < fighter.attackStartup + fighter.attackActive) {
+    // Active — hitbox is live
+    fighter.attackPhase = 'active';
+    fighter.isAttacking = true;
+    if (fighter.state === 'closePunching') {
+      // Close punch hitbox covers the fighter's own body zone (overlapping area)
+      const range = CONFIG.CLOSE_PUNCH_RANGE;
+      fighter.attackHitbox = {
+        ox: fighter.facingRight ? fighter.width * 0.3 : -(range - fighter.width * 0.7),
+        oy: 40,
+        w: range,
+        h: 50,
+      };
+    } else {
+      const range = fighter.state === 'punching' ? CONFIG.PUNCH_RANGE : CONFIG.KICK_RANGE;
+      const hbY = fighter.state === 'punching' ? 50 : 100;
+      fighter.attackHitbox = {
+        ox: fighter.facingRight ? fighter.width : -range,
+        oy: hbY,
+        w: range,
+        h: 40,
+      };
+    }
+  } else {
+    // Recovery
+    fighter.attackPhase = 'recovery';
+    fighter.isAttacking = false;
+    fighter.attackHitbox = null;
+  }
+
+  if (fighter.stateTimer <= 0) {
+    fighter.state = 'idle';
+    fighter.canAct = true;
+    fighter.isAttacking = false;
+    fighter.attackHitbox = null;
+  }
+}
+
+function stateToSprite(state) {
+  switch (state) {
+    case 'idle': return 'idle';
+    case 'walking': return 'walk';
+    case 'jumping': return 'idle';
+    case 'punching': return 'punch';
+    case 'closePunching': return 'closePunch';
+    case 'kicking': return 'kick';
+    case 'fireball': return 'fireballPose';
+    case 'hit': return 'hit';
+    case 'blocking': return 'block';
+    case 'victory': return 'victory';
+    case 'defeat': return 'hit';
+    default: return 'idle';
+  }
+}
+
+function updateFighter(fighter, input, opponent, fireballs) {
+  fighter.stateTimer--;
+  fighter.fireballCooldown = Math.max(0, fighter.fireballCooldown - 1);
+  if (fighter.spriteFlash > 0) fighter.spriteFlash--;
+
+  // Auto-face opponent
+  if (fighter.state !== 'hit') {
+    fighter.facingRight = fighter.x < opponent.x;
+  }
+
+  // --- Gravity & jump physics (always applied) ---
+  if (fighter.airborne) {
+    fighter.vy += CONFIG.GRAVITY;
+    fighter.y += fighter.vy;
+    // Allow horizontal movement while airborne
+    if (input.left) fighter.x -= CONFIG.MOVE_SPEED;
+    else if (input.right) fighter.x += CONFIG.MOVE_SPEED;
+    // Landing
+    if (fighter.y >= fighter.groundY) {
+      fighter.y = fighter.groundY;
+      fighter.vy = 0;
+      fighter.airborne = false;
+      if (fighter.state === 'jumping') {
+        fighter.state = 'idle';
+        fighter.canAct = true;
+      }
+    }
+  }
+
+  switch (fighter.state) {
+    case 'idle':
+    case 'walking':
+      fighter.canAct = true;
+      fighter.isAttacking = false;
+      fighter.attackHitbox = null;
+
+      // Jump (highest priority)
+      if (input.jump && !fighter.airborne) {
+        fighter.vy = CONFIG.JUMP_VELOCITY;
+        fighter.airborne = true;
+        fighter.state = 'jumping';
+        fighter.canAct = false;
+        fighter.currentSprite = 'idle';
+        break;
+      }
+
+      // Actions (priority: fireball > kick > punch > block)
+      if (input.fireball && fighter.canAct && !fighter.airborne) {
+        // Push fighters apart so the fireball has room to travel
+        const gap = fighter.facingRight
+          ? (opponent.x - (fighter.x + fighter.width))
+          : (fighter.x - (opponent.x + opponent.width));
+        if (gap < 40) {
+          const pushDist = (40 - gap) / 2 + CONFIG.PUSH_BACK;
+          if (fighter.facingRight) {
+            fighter.x -= pushDist;
+            opponent.x += pushDist;
+          } else {
+            fighter.x += pushDist;
+            opponent.x -= pushDist;
+          }
+        }
+        startFireball(fighter, fireballs);
+        break;
+      }
+      if (input.kick && fighter.canAct && !fighter.airborne) {
+        startKick(fighter);
+        break;
+      }
+      if (input.punch && fighter.canAct && !fighter.airborne) {
+        // Use close punch when fighters are overlapping
+        const gap = fighter.facingRight
+          ? (opponent.x - (fighter.x + fighter.width))
+          : (fighter.x - (opponent.x + opponent.width));
+        if (gap < 0) {
+          startClosePunch(fighter);
+        } else {
+          startPunch(fighter);
+        }
+        break;
+      }
+      if (input.block && !fighter.airborne) {
+        fighter.state = 'blocking';
+        fighter.currentSprite = 'block';
+        break;
+      }
+
+      // Movement
+      if (input.left) {
+        fighter.x -= CONFIG.MOVE_SPEED;
+        fighter.state = 'walking';
+      } else if (input.right) {
+        fighter.x += CONFIG.MOVE_SPEED;
+        fighter.state = 'walking';
+      } else {
+        fighter.state = 'idle';
+      }
+
+      fighter.currentSprite = stateToSprite(fighter.state);
+      break;
+
+    case 'jumping':
+      // Stay in jumping state until landing (handled by gravity above)
+      fighter.currentSprite = 'idle';
+      break;
+
+    case 'punching':
+    case 'closePunching':
+    case 'kicking':
+      handleAttackFrames(fighter);
+      break;
+
+    case 'fireball':
+      if (fighter._spawnFireball !== undefined) {
+        fighter._spawnFireball--;
+        if (fighter._spawnFireball <= 0) {
+          spawnFireball(fighter, fireballs);
+          delete fighter._spawnFireball;
+          playFireballSound();
+        }
+      }
+      if (fighter.stateTimer <= 0) {
+        fighter.state = 'idle';
+        fighter.canAct = true;
+      }
+      break;
+
+    case 'hit':
+      if (fighter.stateTimer <= 0) {
+        fighter.state = 'idle';
+        fighter.canAct = true;
+      }
+      break;
+
+    case 'blocking':
+      if (!input.block) {
+        fighter.state = 'idle';
+        fighter.currentSprite = 'idle';
+      }
+      break;
+
+    case 'victory':
+    case 'defeat':
+      // Locked states — do nothing
+      break;
+  }
+
+  // Clamp to stage
+  fighter.x = Math.max(CONFIG.STAGE_LEFT, Math.min(CONFIG.STAGE_RIGHT - fighter.width, fighter.x));
+
+  fighter.currentSprite = stateToSprite(fighter.state);
+}
+
+// ============================================================
+// PUSH COLLISION (prevent overlap)
+// ============================================================
+function pushFightersApart(f1, f2) {
+  const overlap = (f1.x + f1.width) - f2.x;
+  if (f1.x < f2.x && overlap > 0) {
+    const half = overlap / 2;
+    f1.x -= half;
+    f2.x += half;
+  } else if (f2.x < f1.x) {
+    const overlap2 = (f2.x + f2.width) - f1.x;
+    if (overlap2 > 0) {
+      const half = overlap2 / 2;
+      f2.x -= half;
+      f1.x += half;
+    }
+  }
+}
+
+// ============================================================
+// FIREBALLS
+// ============================================================
+let fireballs = [];
+
+function spawnFireball(fighter) {
+  fireballs.push({
+    x: fighter.x + (fighter.facingRight ? fighter.width : -30),
+    y: fighter.y + fighter.height * 0.4,
+    width: 60,
+    height: 30,
+    speed: fighter.facingRight ? CONFIG.FIREBALL_SPEED : -CONFIG.FIREBALL_SPEED,
+    damage: CONFIG.FIREBALL_DAMAGE,
+    owner: fighter,
+    sprite: fighter.playerNum === 1 ? 'fireballP1' : 'fireballP2',
+    alive: true,
+  });
+}
+
+function updateFireballs() {
+  for (const fb of fireballs) {
+    fb.x += fb.speed;
+    if (fb.x < -100 || fb.x > W + 100) fb.alive = false;
+  }
+  // Fireball-vs-fireball collision
+  for (let i = 0; i < fireballs.length; i++) {
+    for (let j = i + 1; j < fireballs.length; j++) {
+      if (fireballs[i].alive && fireballs[j].alive &&
+          fireballs[i].owner !== fireballs[j].owner &&
+          rectsOverlap(fireballs[i], fireballs[j])) {
+        fireballs[i].alive = false;
+        fireballs[j].alive = false;
+        spawnHitSpark((fireballs[i].x + fireballs[j].x) / 2, fireballs[i].y);
+      }
+    }
+  }
+  for (let i = fireballs.length - 1; i >= 0; i--) {
+    if (!fireballs[i].alive) fireballs.splice(i, 1);
+  }
+}
+
+// ============================================================
+// HIT DETECTION
+// ============================================================
+function rectsOverlap(a, b) {
+  const ax = a.x, ay = a.y, aw = a.width || a.w, ah = a.height || a.h;
+  const bx = b.x, by = b.y, bw = b.width || b.w, bh = b.height || b.h;
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+function getWorldHitbox(fighter) {
+  if (!fighter.attackHitbox) return null;
+  const hb = fighter.attackHitbox;
+  return { x: fighter.x + hb.ox, y: fighter.y + hb.oy, w: hb.w, h: hb.h };
+}
+
+function getBodyBox(fighter) {
+  return { x: fighter.x + 15, y: fighter.y, w: fighter.width - 30, h: fighter.height };
+}
+
+function applyHit(fighter, damage) {
+  if (fighter.state === 'blocking') {
+    damage *= CONFIG.BLOCK_DAMAGE_MULT;
+    fighter.x += (fighter.facingRight ? -CONFIG.PUSH_BACK / 2 : CONFIG.PUSH_BACK / 2);
+    fighter.health = Math.max(0, fighter.health - damage);
+    fighter.spriteFlash = 4;
+    playBlockSound();
+  } else {
+    fighter.state = 'hit';
+    fighter.stateTimer = CONFIG.HIT_STUN;
+    fighter.canAct = false;
+    fighter.isAttacking = false;
+    fighter.attackHitbox = null;
+    fighter.x += (fighter.facingRight ? -CONFIG.PUSH_BACK : CONFIG.PUSH_BACK);
+    fighter.health = Math.max(0, fighter.health - damage);
+    fighter.spriteFlash = 6;
+    fighter.currentSprite = 'hit';
+    shakeIntensity = Math.max(shakeIntensity, damage * 0.6);
+    playHitSound();
+  }
+}
+
+function checkCollisions(attacker, defender) {
+  // Melee
+  if (attacker.isAttacking && !attacker.hasHitThisAttack && attacker.attackHitbox) {
+    const hb = getWorldHitbox(attacker);
+    if (hb && rectsOverlap(hb, getBodyBox(defender))) {
+      applyHit(defender, attacker.attackDamage);
+      attacker.hasHitThisAttack = true;
+      spawnHitSpark(hb.x + hb.w / 2, hb.y + hb.h / 2);
+    }
+  }
+
+  // Fireballs vs defender
+  for (const fb of fireballs) {
+    if (fb.owner !== defender && fb.alive) {
+      if (rectsOverlap(fb, getBodyBox(defender))) {
+        applyHit(defender, fb.damage);
+        fb.alive = false;
+        spawnHitSpark(fb.x + fb.width / 2, fb.y);
+      }
+    }
+  }
+}
+
+// ============================================================
+// PARTICLES & EFFECTS
+// ============================================================
+const particles = [];
+let shakeIntensity = 0;
+
+function spawnHitSpark(x, y) {
+  for (let i = 0; i < 10; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 12,
+      vy: (Math.random() - 0.5) * 12,
+      life: 10 + Math.random() * 8,
+      maxLife: 18,
+      size: 2 + Math.random() * 4,
+      color: ['#fff', '#ff0', '#f80', '#f44'][Math.floor(Math.random() * 4)],
+    });
+  }
+  shakeIntensity = Math.max(shakeIntensity, 5);
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.92;
+    p.vy *= 0.92;
+    p.life--;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    const alpha = p.life / p.maxLife;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ============================================================
+// DRAWING
+// ============================================================
+function drawBackground() {
+  const bg = images.bg;
+  if (bg) {
+    ctx.drawImage(bg, 0, 0, W, H);
+  }
+}
+
+function drawFighter(fighter) {
+  const spriteKey = fighter.playerNum === 1 ? 'p1' : 'p2';
+  const spriteSet = images[spriteKey];
+  const sprite = spriteSet ? spriteSet[fighter.currentSprite] || spriteSet.idle : null;
+
+  ctx.save();
+
+  // Draw shadow on the ground when airborne
+  if (fighter.airborne) {
+    const shadowAlpha = Math.max(0.1, 0.4 - (fighter.groundY - fighter.y) * 0.002);
+    ctx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
+    ctx.beginPath();
+    ctx.ellipse(fighter.x + fighter.width / 2, fighter.groundY + fighter.height, 40, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Position for drawing — anchor at feet
+  const drawX = fighter.x;
+  const drawY = fighter.y;
+  const drawW = fighter.width;
+  const drawH = fighter.height;
+
+  if (!fighter.facingRight) {
+    // Flip horizontally
+    ctx.translate(drawX + drawW / 2, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-(drawX + drawW / 2), 0);
+  }
+
+  if (sprite) {
+    ctx.drawImage(sprite, drawX, drawY, drawW, drawH);
+  }
+
+  // Damage flash overlay
+  if (fighter.spriteFlash > 0) {
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillRect(drawX, drawY, drawW, drawH);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  ctx.restore();
+
+  // Debug: draw attack hitbox (uncomment for testing)
+  // if (fighter.attackHitbox && fighter.isAttacking) {
+  //   const hb = getWorldHitbox(fighter);
+  //   ctx.strokeStyle = 'red';
+  //   ctx.lineWidth = 2;
+  //   ctx.strokeRect(hb.x, hb.y, hb.w, hb.h);
+  // }
+}
+
+function drawFireballs() {
+  for (const fb of fireballs) {
+    const sprite = images.fx ? images.fx[fb.sprite] : null;
+    if (sprite) {
+      ctx.save();
+      if (fb.speed < 0) {
+        ctx.translate(fb.x + fb.width / 2, 0);
+        ctx.scale(-1, 1);
+        ctx.translate(-(fb.x + fb.width / 2), 0);
+      }
+      ctx.drawImage(sprite, fb.x, fb.y, fb.width, fb.height);
+      ctx.restore();
+    }
+  }
+}
+
+function drawHealthBar(x, y, w, h, health, max, color, rightAligned) {
+  const ratio = health / max;
+
+  // Background
+  ctx.fillStyle = '#222';
+  ctx.fillRect(x, y, w, h);
+
+  // Damage background (red)
+  ctx.fillStyle = '#611';
+  ctx.fillRect(x, y, w, h);
+
+  // Health fill
+  ctx.fillStyle = color;
+  if (rightAligned) {
+    ctx.fillRect(x + w * (1 - ratio), y, w * ratio, h);
+  } else {
+    ctx.fillRect(x, y, w * ratio, h);
+  }
+
+  // Low health pulse
+  if (ratio < 0.25) {
+    ctx.fillStyle = `rgba(255,0,0,${0.2 + Math.sin(Date.now() / 100) * 0.1})`;
+    if (rightAligned) {
+      ctx.fillRect(x + w * (1 - ratio), y, w * ratio, h);
+    } else {
+      ctx.fillRect(x, y, w * ratio, h);
+    }
+  }
+
+  // Border
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, w, h);
+}
+
+function drawRoundDots(x, y, wins) {
+  for (let i = 0; i < CONFIG.ROUNDS_TO_WIN; i++) {
+    ctx.beginPath();
+    ctx.arc(x + i * 25, y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = i < wins ? '#f1c40f' : '#555';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+function drawHUD() {
+  const BAR_W = 480, BAR_H = 28, BAR_Y = 32, BAR_MARGIN = 40;
+
+  // Player names
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 18px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('PLAYER 1', BAR_MARGIN, BAR_Y - 8);
+  ctx.textAlign = 'right';
+  ctx.fillText('PLAYER 2', W - BAR_MARGIN, BAR_Y - 8);
+
+  // Health bars
+  drawHealthBar(BAR_MARGIN, BAR_Y, BAR_W, BAR_H, p1.health, p1.maxHealth, '#e74c3c', false);
+  drawHealthBar(W - BAR_MARGIN - BAR_W, BAR_Y, BAR_W, BAR_H, p2.health, p2.maxHealth, '#3498db', true);
+
+  // Timer
+  ctx.fillStyle = '#000';
+  ctx.fillRect(W / 2 - 35, 15, 70, 55);
+  ctx.strokeStyle = '#f1c40f';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(W / 2 - 35, 15, 70, 55);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 42px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(String(Math.ceil(roundTimer)), W / 2, 58);
+
+  // Round dots
+  drawRoundDots(BAR_MARGIN + BAR_W / 2 - 12, BAR_Y + BAR_H + 18, p1Wins);
+  drawRoundDots(W - BAR_MARGIN - BAR_W / 2 - 12, BAR_Y + BAR_H + 18, p2Wins);
+}
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let gameState = 'loading'; // loading | title | roundStart | fighting | roundEnd | matchEnd
+let p1, p2;
+let p1Wins = 0, p2Wins = 0;
+let roundNumber = 0;
+let roundTimer = CONFIG.ROUND_TIME;
+let announceTimer = 0;
+let resultTimer = 0;
+let announceText = '';
+let resultText = '';
+let lastTimestamp = 0;
+let timerAccumulator = 0;
+
+function resetFighters() {
+  p1 = createFighter(1, 250, true);
+  p2 = createFighter(2, 910, false);
+  fireballs = [];
+  particles.length = 0;
+  shakeIntensity = 0;
+}
+
+function startNewMatch() {
+  p1Wins = 0;
+  p2Wins = 0;
+  roundNumber = 0;
+  startBGM();
+  startNewRound();
+}
+
+function startNewRound() {
+  resetFighters();
+  roundNumber++;
+  roundTimer = CONFIG.ROUND_TIME;
+  timerAccumulator = 0;
+  announceText = `ROUND ${roundNumber}`;
+  announceTimer = 90; // 1.5 seconds
+  gameState = 'roundStart';
+  playRoundSound();
+}
+
+function checkRoundEnd() {
+  let winner = null;
+
+  if (p1.health <= 0 && p2.health <= 0) {
+    resultText = 'DOUBLE KO';
+    winner = 'draw';
+  } else if (p1.health <= 0) {
+    resultText = 'PLAYER 2 WINS';
+    winner = 'p2';
+  } else if (p2.health <= 0) {
+    resultText = 'PLAYER 1 WINS';
+    winner = 'p1';
+  } else if (roundTimer <= 0) {
+    if (p1.health > p2.health) {
+      resultText = 'TIME — PLAYER 1 WINS';
+      winner = 'p1';
+    } else if (p2.health > p1.health) {
+      resultText = 'TIME — PLAYER 2 WINS';
+      winner = 'p2';
+    } else {
+      resultText = 'TIME — DRAW';
+      winner = 'draw';
+    }
+  }
+
+  if (winner) {
+    if (winner === 'p1') {
+      p1Wins++;
+      p1.state = 'victory';
+      p2.state = 'defeat';
+    } else if (winner === 'p2') {
+      p2Wins++;
+      p2.state = 'victory';
+      p1.state = 'defeat';
+    } else {
+      p1.state = 'idle';
+      p2.state = 'idle';
+    }
+    resultTimer = 120; // 2 seconds
+    gameState = 'roundEnd';
+    if (winner !== 'draw') playKOSound();
+  }
+}
+
+function startNextRound() {
+  if (p1Wins >= CONFIG.ROUNDS_TO_WIN || p2Wins >= CONFIG.ROUNDS_TO_WIN) {
+    stopBGM();
+    gameState = 'matchEnd';
+    resultText = p1Wins >= CONFIG.ROUNDS_TO_WIN ? 'PLAYER 1 WINS THE MATCH!' : 'PLAYER 2 WINS THE MATCH!';
+    resultTimer = 0;
+  } else {
+    startNewRound();
+  }
+}
+
+// ============================================================
+// SCREEN DRAWING
+// ============================================================
+function drawTitleScreen() {
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Title
+  ctx.fillStyle = '#e74c3c';
+  ctx.font = 'bold 72px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('STREET FIGHTER', W / 2, 200);
+
+  // Subtitle
+  ctx.fillStyle = '#f1c40f';
+  ctx.font = 'bold 32px monospace';
+  ctx.fillText('PLACEHOLDER EDITION', W / 2, 260);
+
+  // Controls
+  ctx.fillStyle = '#aaa';
+  ctx.font = '18px monospace';
+  const controlsY = 340;
+  ctx.fillText('— CONTROLS —', W / 2, controlsY);
+
+  ctx.textAlign = 'left';
+  ctx.font = '16px monospace';
+  const col1 = W / 2 - 280;
+  const col2 = W / 2 + 60;
+  const lh = 28;
+
+  ctx.fillStyle = '#e74c3c';
+  ctx.fillText('PLAYER 1', col1, controlsY + 40);
+  ctx.fillStyle = '#ccc';
+  ctx.fillText('A / D       Move', col1, controlsY + 40 + lh);
+  ctx.fillText('W           Jump', col1, controlsY + 40 + lh * 2);
+  ctx.fillText('F           Punch', col1, controlsY + 40 + lh * 3);
+  ctx.fillText('G           Kick', col1, controlsY + 40 + lh * 4);
+  ctx.fillText('H           Fireball', col1, controlsY + 40 + lh * 5);
+  ctx.fillText('S           Block', col1, controlsY + 40 + lh * 6);
+
+  ctx.fillStyle = '#3498db';
+  ctx.fillText('PLAYER 2', col2, controlsY + 40);
+  ctx.fillStyle = '#ccc';
+  ctx.fillText('← / →       Move', col2, controlsY + 40 + lh);
+  ctx.fillText('↑            Jump', col2, controlsY + 40 + lh * 2);
+  ctx.fillText('J            Punch', col2, controlsY + 40 + lh * 3);
+  ctx.fillText('K            Kick', col2, controlsY + 40 + lh * 4);
+  ctx.fillText('L            Fireball', col2, controlsY + 40 + lh * 5);
+  ctx.fillText('↓            Block', col2, controlsY + 40 + lh * 6);
+
+  // Prompt
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 24px monospace';
+  const pulse = 0.5 + Math.sin(Date.now() / 300) * 0.5;
+  ctx.globalAlpha = pulse;
+  ctx.fillText('PRESS ANY KEY TO START', W / 2, 620);
+  ctx.globalAlpha = 1;
+}
+
+function drawRoundAnnounce() {
+  drawBackground();
+  drawFighter(p1);
+  drawFighter(p2);
+  drawHUD();
+
+  // Darken overlay
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#f1c40f';
+  ctx.font = 'bold 80px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(announceText, W / 2, H / 2 - 20);
+
+  if (announceTimer < 50) {
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 60px monospace';
+    ctx.fillText('FIGHT!', W / 2, H / 2 + 60);
+  }
+}
+
+function drawRoundResult() {
+  drawBackground();
+  drawFighter(p1);
+  drawFighter(p2);
+  drawHUD();
+
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 56px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(resultText, W / 2, H / 2);
+
+  // KO text if someone is at 0
+  if (p1.health <= 0 || p2.health <= 0) {
+    ctx.fillStyle = '#e74c3c';
+    ctx.font = 'bold 90px monospace';
+    ctx.fillText('K.O.', W / 2, H / 2 - 80);
+  }
+}
+
+function drawMatchEnd() {
+  drawBackground();
+  drawFighter(p1);
+  drawFighter(p2);
+  drawHUD();
+
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#f1c40f';
+  ctx.font = 'bold 50px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(resultText, W / 2, H / 2 - 30);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '24px monospace';
+  const pulse = 0.5 + Math.sin(Date.now() / 300) * 0.5;
+  ctx.globalAlpha = pulse;
+  ctx.fillText('PRESS ANY KEY FOR REMATCH', W / 2, H / 2 + 40);
+  ctx.globalAlpha = 1;
+}
+
+function drawLoadingScreen() {
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fff';
+  ctx.font = '24px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('LOADING...', W / 2, H / 2 - 20);
+
+  // Progress bar
+  const barW = 300, barH = 20;
+  const barX = (W - barW) / 2, barY = H / 2 + 10;
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(barX, barY, barW, barH);
+  const progress = assetsTotal > 0 ? assetsLoaded / assetsTotal : 0;
+  ctx.fillStyle = '#e74c3c';
+  ctx.fillRect(barX + 2, barY + 2, (barW - 4) * progress, barH - 4);
+}
+
+function drawFightingScreen() {
+  // Screen shake
+  ctx.save();
+  if (shakeIntensity > 0) {
+    ctx.translate(
+      (Math.random() - 0.5) * shakeIntensity,
+      (Math.random() - 0.5) * shakeIntensity
+    );
+    shakeIntensity *= 0.85;
+    if (shakeIntensity < 0.5) shakeIntensity = 0;
+  }
+
+  drawBackground();
+  drawFireballs();
+  drawFighter(p1);
+  drawFighter(p2);
+  drawParticles();
+  drawHUD();
+
+  ctx.restore();
+}
+
+// ============================================================
+// MAIN GAME LOOP
+// ============================================================
+function gameLoop(timestamp) {
+  const dt = timestamp - lastTimestamp;
+  lastTimestamp = timestamp;
+
+  // Clear
+  ctx.clearRect(0, 0, W, H);
+
+  switch (gameState) {
+    case 'loading':
+      drawLoadingScreen();
+      if (assetsReady) {
+        gameState = 'title';
+      }
+      break;
+
+    case 'title':
+      drawTitleScreen();
+      if (anyKeyJustPressed()) {
+        ensureAudio();
+        startNewMatch();
+      }
+      break;
+
+    case 'roundStart':
+      drawRoundAnnounce();
+      announceTimer--;
+      if (announceTimer <= 0) {
+        gameState = 'fighting';
+      }
+      break;
+
+    case 'fighting': {
+      const input1 = readInputs(1);
+      const input2 = readInputs(2);
+
+      updateFighter(p1, input1, p2, fireballs);
+      updateFighter(p2, input2, p1, fireballs);
+      pushFightersApart(p1, p2);
+      updateFireballs();
+      checkCollisions(p1, p2);
+      checkCollisions(p2, p1);
+      updateParticles();
+
+      // Update timer
+      timerAccumulator += dt;
+      if (timerAccumulator >= 1000) {
+        roundTimer = Math.max(0, roundTimer - 1);
+        timerAccumulator -= 1000;
+      }
+
+      drawFightingScreen();
+      checkRoundEnd();
+      break;
+    }
+
+    case 'roundEnd':
+      drawRoundResult();
+      resultTimer--;
+      if (resultTimer <= 0) {
+        startNextRound();
+      }
+      break;
+
+    case 'matchEnd':
+      drawMatchEnd();
+      if (anyKeyJustPressed()) {
+        startNewMatch();
+      }
+      break;
+  }
+
+  // Clear just-pressed keys at end of frame
+  keysJustPressed.clear();
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+// START
+// ============================================================
+loadAssets().then(() => {
+  requestAnimationFrame(gameLoop);
+});
+</script>
+</body>
+</html>
