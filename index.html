@@ -49,7 +49,8 @@ const CONFIG = {
   JUMP_VELOCITY: -18,
   GRAVITY: 0.8,
 
-  HIT_STUN: 15,
+  HIT_STUN: 30,
+  BLOCK_STUN: 20,
   BLOCK_DAMAGE_MULT: 0.2,
 
   ROUND_TIME: 99,
@@ -78,6 +79,7 @@ const ASSET_PATHS = {
     hit: 'assets/player1/hit.png',
     block: 'assets/player1/block.png',
     victory: 'assets/player1/victory.png',
+    defeat: 'assets/player1/defeat.png',
   },
   p2: {
     idle: 'assets/player2/idle.png',
@@ -89,6 +91,7 @@ const ASSET_PATHS = {
     hit: 'assets/player2/hit.png',
     block: 'assets/player2/block.png',
     victory: 'assets/player2/victory.png',
+    defeat: 'assets/player2/defeat.png',
   },
   fx: {
     fireballP1: 'assets/fx/fireball-p1.png',
@@ -229,6 +232,16 @@ function generatePlaceholders() {
       cx.fillStyle = color;
       cx.fillRect(0, 10, 20, 60);
       cx.fillRect(100, 10, 20, 60);
+    } else if (pose === 'defeat') {
+      // Slumped on the ground
+      cx.clearRect(0, 0, 120, 200);
+      cx.fillStyle = color;
+      cx.globalAlpha = 0.6;
+      cx.fillRect(10, 140, 100, 40);
+      cx.beginPath();
+      cx.arc(30, 145, 20, 0, Math.PI * 2);
+      cx.fill();
+      cx.globalAlpha = 1.0;
     }
 
     // Label
@@ -244,7 +257,7 @@ function generatePlaceholders() {
     return c;
   }
 
-  const poses = ['idle', 'walk', 'punch', 'closePunch', 'kick', 'fireballPose', 'hit', 'block', 'victory'];
+  const poses = ['idle', 'walk', 'punch', 'closePunch', 'kick', 'fireballPose', 'hit', 'block', 'victory', 'defeat'];
   for (const pose of poses) {
     if (!getNestedImage(`p1.${pose}`)) setNestedImage(`p1.${pose}`, makeCharSprite('#c0392b', 'P1', pose));
     if (!getNestedImage(`p2.${pose}`)) setNestedImage(`p2.${pose}`, makeCharSprite('#2980b9', 'P2', pose));
@@ -684,7 +697,7 @@ function stateToSprite(state) {
     case 'hit': return 'hit';
     case 'blocking': return 'block';
     case 'victory': return 'victory';
-    case 'defeat': return 'hit';
+    case 'defeat': return 'defeat';
     default: return 'idle';
   }
 }
@@ -824,6 +837,8 @@ function updateFighter(fighter, input, opponent, fireballs) {
       break;
 
     case 'blocking':
+      if (fighter.stateTimer > 0) break; // block stun — can't release yet
+      fighter.canAct = true;
       if (!input.block) {
         fighter.state = 'idle';
         fighter.currentSprite = 'idle';
@@ -927,6 +942,8 @@ function applyHit(fighter, damage) {
     fighter.x += (fighter.facingRight ? -CONFIG.PUSH_BACK / 2 : CONFIG.PUSH_BACK / 2);
     fighter.health = Math.max(0, fighter.health - damage);
     fighter.spriteFlash = 4;
+    fighter.stateTimer = CONFIG.BLOCK_STUN;
+    fighter.canAct = false;
     playBlockSound();
   } else {
     fighter.state = 'hit';
@@ -1236,16 +1253,20 @@ function checkRoundEnd() {
     if (winner === 'p1') {
       p1Wins++;
       p1.state = 'victory';
+      p1.currentSprite = 'victory';
       p2.state = 'defeat';
+      p2.currentSprite = 'defeat';
     } else if (winner === 'p2') {
       p2Wins++;
       p2.state = 'victory';
+      p2.currentSprite = 'victory';
       p1.state = 'defeat';
+      p1.currentSprite = 'defeat';
     } else {
       p1.state = 'idle';
       p2.state = 'idle';
     }
-    resultTimer = 120; // 2 seconds
+    resultTimer = 210; // 3.5 seconds
     gameState = 'roundEnd';
     if (winner !== 'draw') playKOSound();
   }

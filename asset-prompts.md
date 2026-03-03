@@ -45,6 +45,9 @@ Base: use the Player 1 child drawing as reference. Keep the wobbly pencil lines,
 **`assets/player1/victory.png`**
 > A whimsical character depicted celebrating with both arms raised high in the air, with a huge open-mouth grin and eyes closed with joy. A little victory crown or stars are doodled around them. The style resembles a wobbly pencil drawing, reminiscent of a child's sketchbook, showcasing playful imperfections. The character faces to the right, triumphant after defeating their opponent. The background is a pure plain magenta (#FF00FF), and the overall image dimensions are 120x200px.
 
+**`assets/player1/defeat.png`**
+> A whimsical character depicted slumped on the ground in defeat, lying face down or collapsed on their knees with arms limp. The character has spiral eyes and a wobbly frown, looking dazed and knocked out. Little stars or birds circle above their head. The style resembles a wobbly pencil drawing, reminiscent of a child's sketchbook, showcasing playful imperfections. The character faces to the right, defeated by their opponent. The background is a pure plain magenta (#FF00FF), and the overall image dimensions are 120x200px.
+
 ---
 
 ## Player 2 Sprites (120x200 each)
@@ -77,6 +80,9 @@ Base: use the Player 2 child drawing as reference. Same wobbly pencil-drawn styl
 
 **`assets/player2/victory.png`**
 > A whimsical character depicted celebrating with both arms raised, flexing muscles, with a cocky grin, maybe standing on one foot in a silly pose. Scribbled confetti or doodle stars surround them. Visually distinct from Player 1. The style resembles a wobbly pencil drawing, reminiscent of a child's sketchbook, showcasing playful imperfections. The character faces to the left, triumphant after defeating their opponent. The background is a pure plain magenta (#FF00FF), and the overall image dimensions are 120x200px.
+
+**`assets/player2/defeat.png`**
+> A whimsical character depicted slumped on the ground in defeat, lying face down or collapsed on their knees with arms limp. The character has spiral eyes and a wobbly frown, looking dazed and knocked out. Little stars or birds circle above their head. Visually distinct from Player 1. The style resembles a wobbly pencil drawing, reminiscent of a child's sketchbook, showcasing playful imperfections. The character faces to the left, defeated by their opponent. The background is a pure plain magenta (#FF00FF), and the overall image dimensions are 120x200px.
 
 ---
 
