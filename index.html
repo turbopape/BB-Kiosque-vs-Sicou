@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Street Fighter</title>
+<title>Bebe Kiosque VS Sicou</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
@@ -18,7 +18,7 @@
 // ============================================================
 const CONFIG = {
   MOVE_SPEED: 5,
-  GROUND_Y: 500,
+  GROUND_Y: 400,
   STAGE_LEFT: 40,
   STAGE_RIGHT: 1240,
   PUSH_BACK: 8,
@@ -546,8 +546,8 @@ function createFighter(playerNum, startX, facingRight) {
     playerNum,
     x: startX,
     y: CONFIG.GROUND_Y,
-    width: 120,
-    height: 200,
+    width: 180,
+    height: 300,
     facingRight,
     vy: 0,
     groundY: CONFIG.GROUND_Y,
@@ -1141,9 +1141,9 @@ function drawHUD() {
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 18px monospace';
   ctx.textAlign = 'left';
-  ctx.fillText('PLAYER 1', BAR_MARGIN, BAR_Y - 8);
+  ctx.fillText('BB. KIOSQUE', BAR_MARGIN, BAR_Y - 8);
   ctx.textAlign = 'right';
-  ctx.fillText('PLAYER 2', W - BAR_MARGIN, BAR_Y - 8);
+  ctx.fillText('SICOU', W - BAR_MARGIN, BAR_Y - 8);
 
   // Health bars
   drawHealthBar(BAR_MARGIN, BAR_Y, BAR_W, BAR_H, p1.health, p1.maxHealth, '#e74c3c', false);
@@ -1214,17 +1214,17 @@ function checkRoundEnd() {
     resultText = 'DOUBLE KO';
     winner = 'draw';
   } else if (p1.health <= 0) {
-    resultText = 'PLAYER 2 WINS';
+    resultText = 'SICOU WINS';
     winner = 'p2';
   } else if (p2.health <= 0) {
-    resultText = 'PLAYER 1 WINS';
+    resultText = 'BB. KIOSQUE WINS';
     winner = 'p1';
   } else if (roundTimer <= 0) {
     if (p1.health > p2.health) {
-      resultText = 'TIME — PLAYER 1 WINS';
+      resultText = 'TIME — BB. KIOSQUE WINS';
       winner = 'p1';
     } else if (p2.health > p1.health) {
-      resultText = 'TIME — PLAYER 2 WINS';
+      resultText = 'TIME — SICOU WINS';
       winner = 'p2';
     } else {
       resultText = 'TIME — DRAW';
@@ -1255,7 +1255,7 @@ function startNextRound() {
   if (p1Wins >= CONFIG.ROUNDS_TO_WIN || p2Wins >= CONFIG.ROUNDS_TO_WIN) {
     stopBGM();
     gameState = 'matchEnd';
-    resultText = p1Wins >= CONFIG.ROUNDS_TO_WIN ? 'PLAYER 1 WINS THE MATCH!' : 'PLAYER 2 WINS THE MATCH!';
+    resultText = p1Wins >= CONFIG.ROUNDS_TO_WIN ? 'BB. KIOSQUE WINS THE MATCH!' : 'SICOU WINS THE MATCH!';
     resultTimer = 0;
   } else {
     startNewRound();
@@ -1273,7 +1273,7 @@ function drawTitleScreen() {
   ctx.fillStyle = '#e74c3c';
   ctx.font = 'bold 72px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('STREET FIGHTER', W / 2, 200);
+  ctx.fillText('BEBE KIOSQUE VS SICOU', W / 2, 200);
 
   // Subtitle
   ctx.fillStyle = '#f1c40f';
@@ -1293,7 +1293,7 @@ function drawTitleScreen() {
   const lh = 28;
 
   ctx.fillStyle = '#e74c3c';
-  ctx.fillText('PLAYER 1', col1, controlsY + 40);
+  ctx.fillText('BB. KIOSQUE', col1, controlsY + 40);
   ctx.fillStyle = '#ccc';
   ctx.fillText('A / D       Move', col1, controlsY + 40 + lh);
   ctx.fillText('W           Jump', col1, controlsY + 40 + lh * 2);
@@ -1303,7 +1303,7 @@ function drawTitleScreen() {
   ctx.fillText('S           Block', col1, controlsY + 40 + lh * 6);
 
   ctx.fillStyle = '#3498db';
-  ctx.fillText('PLAYER 2', col2, controlsY + 40);
+  ctx.fillText('SICOU', col2, controlsY + 40);
   ctx.fillStyle = '#ccc';
   ctx.fillText('← / →       Move', col2, controlsY + 40 + lh);
   ctx.fillText('↑            Jump', col2, controlsY + 40 + lh * 2);
