@@ -46,8 +46,8 @@ const CONFIG = {
   FIREBALL_DAMAGE: 14,
   FIREBALL_COOLDOWN: 45,
 
-  JUMP_VELOCITY: -18,
-  GRAVITY: 0.8,
+  JUMP_VELOCITY: -22,
+  GRAVITY: 0.65,
 
   HIT_STUN: 30,
   BLOCK_STUN: 20,
@@ -652,13 +652,12 @@ function handleAttackFrames(fighter) {
     fighter.attackPhase = 'active';
     fighter.isAttacking = true;
     if (fighter.state === 'closePunching') {
-      // Close punch hitbox covers the fighter's own body zone (overlapping area)
       const range = CONFIG.CLOSE_PUNCH_RANGE;
       fighter.attackHitbox = {
-        ox: fighter.facingRight ? fighter.width * 0.3 : -(range - fighter.width * 0.7),
+        ox: fighter.facingRight ? fighter.width : -range,
         oy: 40,
         w: range,
-        h: 50,
+        h: 80,
       };
     } else {
       const range = fighter.state === 'punching' ? CONFIG.PUNCH_RANGE : CONFIG.KICK_RANGE;
@@ -772,11 +771,11 @@ function updateFighter(fighter, input, opponent, fireballs) {
         break;
       }
       if (input.punch && fighter.canAct && !fighter.airborne) {
-        // Use close punch when fighters are overlapping
+        // Use close punch when fighters are near each other
         const gap = fighter.facingRight
           ? (opponent.x - (fighter.x + fighter.width))
           : (fighter.x - (opponent.x + opponent.width));
-        if (gap < 0) {
+        if (gap < 30) {
           startClosePunch(fighter);
         } else {
           startPunch(fighter);
@@ -887,6 +886,9 @@ function spawnFireball(fighter) {
     y: fighter.y + fighter.height * 0.15,
     width: 200,
     height: 200,
+    // Collision box is smaller than visual — allows jumping over
+    hitW: 120,
+    hitH: 80,
     speed: fighter.facingRight ? CONFIG.FIREBALL_SPEED : -CONFIG.FIREBALL_SPEED,
     damage: CONFIG.FIREBALL_DAMAGE,
     owner: fighter,
@@ -971,10 +973,16 @@ function checkCollisions(attacker, defender) {
     }
   }
 
-  // Fireballs vs defender
+  // Fireballs vs defender (use smaller hitbox centered in the visual)
   for (const fb of fireballs) {
     if (fb.owner !== defender && fb.alive) {
-      if (rectsOverlap(fb, getBodyBox(defender))) {
+      const fbHit = {
+        x: fb.x + (fb.width - fb.hitW) / 2,
+        y: fb.y + (fb.height - fb.hitH) / 2,
+        w: fb.hitW,
+        h: fb.hitH,
+      };
+      if (rectsOverlap(fbHit, getBodyBox(defender))) {
         applyHit(defender, fb.damage);
         fb.alive = false;
         spawnHitSpark(fb.x + fb.width / 2, fb.y);
