@@ -24,24 +24,24 @@ const CONFIG = {
   PUSH_BACK: 8,
 
   PUNCH_STARTUP: 4,
-  PUNCH_ACTIVE: 3,
-  PUNCH_RECOVERY: 8,
+  PUNCH_ACTIVE: 10,
+  PUNCH_RECOVERY: 12,
   PUNCH_DAMAGE: 8,
   PUNCH_RANGE: 70,
 
   CLOSE_PUNCH_STARTUP: 3,
-  CLOSE_PUNCH_ACTIVE: 3,
-  CLOSE_PUNCH_RECOVERY: 6,
+  CLOSE_PUNCH_ACTIVE: 8,
+  CLOSE_PUNCH_RECOVERY: 10,
   CLOSE_PUNCH_DAMAGE: 6,
   CLOSE_PUNCH_RANGE: 60,
 
   KICK_STARTUP: 6,
-  KICK_ACTIVE: 4,
-  KICK_RECOVERY: 10,
+  KICK_ACTIVE: 12,
+  KICK_RECOVERY: 14,
   KICK_DAMAGE: 12,
   KICK_RANGE: 90,
 
-  FIREBALL_STARTUP: 12,
+  FIREBALL_STARTUP: 20,
   FIREBALL_SPEED: 7,
   FIREBALL_DAMAGE: 14,
   FIREBALL_COOLDOWN: 45,
@@ -884,9 +884,9 @@ let fireballs = [];
 function spawnFireball(fighter) {
   fireballs.push({
     x: fighter.x + (fighter.facingRight ? fighter.width : -30),
-    y: fighter.y + fighter.height * 0.4,
-    width: 60,
-    height: 30,
+    y: fighter.y + fighter.height * 0.15,
+    width: 200,
+    height: 200,
     speed: fighter.facingRight ? CONFIG.FIREBALL_SPEED : -CONFIG.FIREBALL_SPEED,
     damage: CONFIG.FIREBALL_DAMAGE,
     owner: fighter,
@@ -990,14 +990,27 @@ const particles = [];
 let shakeIntensity = 0;
 
 function spawnHitSpark(x, y) {
+  // Spawn the hit-spark sprite as a particle
+  const sparkSprite = images.fx ? images.fx.hitSpark : null;
+  if (sparkSprite) {
+    particles.push({
+      x, y,
+      vx: 0, vy: 0,
+      life: 12, maxLife: 12,
+      size: 120,
+      isSprite: true,
+      sprite: sparkSprite,
+    });
+  }
+  // Additional small particles
   for (let i = 0; i < 10; i++) {
     particles.push({
       x, y,
-      vx: (Math.random() - 0.5) * 12,
-      vy: (Math.random() - 0.5) * 12,
-      life: 10 + Math.random() * 8,
-      maxLife: 18,
-      size: 2 + Math.random() * 4,
+      vx: (Math.random() - 0.5) * 14,
+      vy: (Math.random() - 0.5) * 14,
+      life: 12 + Math.random() * 10,
+      maxLife: 22,
+      size: 6 + Math.random() * 8,
       color: ['#fff', '#ff0', '#f80', '#f44'][Math.floor(Math.random() * 4)],
     });
   }
@@ -1020,8 +1033,12 @@ function drawParticles() {
   for (const p of particles) {
     const alpha = p.life / p.maxLife;
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = p.color;
-    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    if (p.isSprite && p.sprite) {
+      ctx.drawImage(p.sprite, p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    } else {
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
   }
   ctx.globalAlpha = 1;
 }
@@ -1066,15 +1083,20 @@ function drawFighter(fighter) {
   }
 
   if (sprite) {
-    ctx.drawImage(sprite, drawX, drawY, drawW, drawH);
-  }
-
-  // Damage flash overlay
-  if (fighter.spriteFlash > 0) {
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.fillRect(drawX, drawY, drawW, drawH);
-    ctx.globalCompositeOperation = 'source-over';
+    // For damage flash, draw to offscreen canvas to isolate composite
+    if (fighter.spriteFlash > 0) {
+      const off = document.createElement('canvas');
+      off.width = drawW;
+      off.height = drawH;
+      const oCtx = off.getContext('2d');
+      oCtx.drawImage(sprite, 0, 0, drawW, drawH);
+      oCtx.globalCompositeOperation = 'source-atop';
+      oCtx.fillStyle = 'rgba(255,255,255,0.6)';
+      oCtx.fillRect(0, 0, drawW, drawH);
+      ctx.drawImage(off, drawX, drawY);
+    } else {
+      ctx.drawImage(sprite, drawX, drawY, drawW, drawH);
+    }
   }
 
   ctx.restore();
@@ -1092,14 +1114,7 @@ function drawFireballs() {
   for (const fb of fireballs) {
     const sprite = images.fx ? images.fx[fb.sprite] : null;
     if (sprite) {
-      ctx.save();
-      if (fb.speed < 0) {
-        ctx.translate(fb.x + fb.width / 2, 0);
-        ctx.scale(-1, 1);
-        ctx.translate(-(fb.x + fb.width / 2), 0);
-      }
       ctx.drawImage(sprite, fb.x, fb.y, fb.width, fb.height);
-      ctx.restore();
     }
   }
 }
@@ -1339,7 +1354,7 @@ function drawTitleScreen() {
   ctx.font = 'bold 24px monospace';
   const pulse = 0.5 + Math.sin(Date.now() / 300) * 0.5;
   ctx.globalAlpha = pulse;
-  ctx.fillText('PRESS ANY KEY TO START', W / 2, 620);
+  ctx.fillText(gameState === 'help' ? 'PRESS SPACE TO RESUME' : 'PRESS ANY KEY TO START', W / 2, 620);
   ctx.globalAlpha = 1;
 }
 
@@ -1484,7 +1499,18 @@ function gameLoop(timestamp) {
       }
       break;
 
+    case 'help':
+      drawTitleScreen();
+      if (keysJustPressed.has('Space')) {
+        gameState = 'fighting';
+      }
+      break;
+
     case 'fighting': {
+      if (keysJustPressed.has('Space')) {
+        gameState = 'help';
+        break;
+      }
       const input1 = readInputs(1);
       const input2 = readInputs(2);
 
