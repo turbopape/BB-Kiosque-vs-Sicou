@@ -577,6 +577,7 @@ function createFighter(playerNum, startX, facingRight) {
     currentSprite: 'idle',
     spriteFlash: 0,
     fireballCooldown: 0,
+    fireballsLeft: 3,
     // Attack phase tracking
     attackPhase: '', // 'startup', 'active', 'recovery'
     attackStartup: 0,
@@ -628,7 +629,8 @@ function startKick(fighter) {
 }
 
 function startFireball(fighter, fireballs) {
-  if (fighter.fireballCooldown > 0) return;
+  if (fighter.fireballCooldown > 0 || fighter.fireballsLeft <= 0) return;
+  fighter.fireballsLeft--;
   fighter.state = 'fireball';
   fighter.canAct = false;
   fighter.stateTimer = CONFIG.FIREBALL_STARTUP;
@@ -1181,15 +1183,29 @@ function drawHealthBar(x, y, w, h, health, max, color, rightAligned) {
   ctx.strokeRect(x, y, w, h);
 }
 
-function drawRoundDots(x, y, wins) {
-  for (let i = 0; i < CONFIG.ROUNDS_TO_WIN; i++) {
+function drawFireballTokens(centerX, y, count) {
+  const r = 10;
+  const spacing = 28;
+  const startX = centerX - (2 * spacing) / 2;
+  for (let i = 0; i < 3; i++) {
+    const cx = startX + i * spacing;
     ctx.beginPath();
-    ctx.arc(x + i * 25, y, 8, 0, Math.PI * 2);
-    ctx.fillStyle = i < wins ? '#f1c40f' : '#555';
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    ctx.arc(cx, y, r, 0, Math.PI * 2);
+    if (i < count) {
+      // Filled fiery token
+      const grad = ctx.createRadialGradient(cx, y, 0, cx, y, r);
+      grad.addColorStop(0, '#fff');
+      grad.addColorStop(0.3, '#f1c40f');
+      grad.addColorStop(0.7, '#f39c12');
+      grad.addColorStop(1, '#e74c3c');
+      ctx.fillStyle = grad;
+      ctx.fill();
+    } else {
+      // Empty token
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
   }
 }
 
@@ -1219,9 +1235,10 @@ function drawHUD() {
   ctx.textAlign = 'center';
   ctx.fillText(String(Math.ceil(roundTimer)), W / 2, 58);
 
-  // Round dots
-  drawRoundDots(BAR_MARGIN + BAR_W / 2 - 12, BAR_Y + BAR_H + 18, p1Wins);
-  drawRoundDots(W - BAR_MARGIN - BAR_W / 2 - 12, BAR_Y + BAR_H + 18, p2Wins);
+  // Fireball tokens centered under each gauge
+  const tokenY = BAR_Y + BAR_H + 16;
+  drawFireballTokens(BAR_MARGIN + BAR_W / 2, tokenY, p1.fireballsLeft);
+  drawFireballTokens(W - BAR_MARGIN - BAR_W / 2, tokenY, p2.fireballsLeft);
 }
 
 // ============================================================
