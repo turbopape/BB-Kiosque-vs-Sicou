@@ -1100,6 +1100,16 @@ function drawFighter(fighter) {
     ctx.translate(-(drawX + drawW / 2), 0);
   }
 
+  // Idle breathing: gentle vertical scale oscillation anchored at feet
+  if (fighter.currentSprite === 'idle' && !fighter.airborne) {
+    const breath = Math.sin(frameCount * 0.05) * 0.02; // ±2% scale
+    const anchorX = drawX + drawW / 2;
+    const anchorY = drawY + drawH; // feet
+    ctx.translate(anchorX, anchorY);
+    ctx.scale(1 - breath * 0.5, 1 + breath);
+    ctx.translate(-anchorX, -anchorY);
+  }
+
   if (sprite) {
     // For damage flash, draw to offscreen canvas to isolate composite
     if (fighter.spriteFlash > 0) {
@@ -1255,6 +1265,7 @@ let announceText = '';
 let resultText = '';
 let lastTimestamp = 0;
 let timerAccumulator = 0;
+let frameCount = 0;
 
 function resetFighters() {
   p1 = createFighter(1, 250, true);
@@ -1573,6 +1584,7 @@ function drawFightingScreen() {
 function gameLoop(timestamp) {
   const dt = timestamp - lastTimestamp;
   lastTimestamp = timestamp;
+  frameCount++;
 
   // Clear
   ctx.clearRect(0, 0, W, H);
