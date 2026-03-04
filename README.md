@@ -1,10 +1,10 @@
-# Nano Banana — Street Fighter Style Fighting Game
+# Bebe Kiosque VS Sicou
 
-A 2D fighting game built as a single HTML file with JavaScript canvas rendering, PNG sprite support, and procedural retro sound effects. Two players battle it out locally with punches, kicks, fireballs, and blocks.
+A 2D fighting game inspired by my son Elyes (BB. Kiosque) and his friend Sarah (Sicou) at school. Built as a single HTML file with JavaScript canvas rendering, PNG sprite support, and procedural retro sound effects. Two players battle it out locally with punches, kicks, fireballs, and blocks.
 
 ## How to Play
 
-Open `index.html` in a browser (serve via a local HTTP server for asset loading).
+Open `index.html` in a browser (serve via a local HTTP server for asset loading). Press Space to pause and see controls.
 
 ### Controls
 
@@ -17,12 +17,15 @@ Open `index.html` in a browser (serve via a local HTTP server for asset loading)
 | Punch      | F        | J / Numpad 1     |
 | Kick       | G        | K / Numpad 2     |
 | Fireball   | H        | L / Numpad 3     |
+| Pause      | Space    | Space            |
 
 ### Rules
 
 - Each round lasts 99 seconds
 - First to win 2 rounds wins the match
+- 3 fireballs per round
 - Blocking reduces damage to 20% (chip damage)
+- Jump over your opponent for cross-ups
 
 ## Assets
 
@@ -33,7 +36,8 @@ assets/
 ├── background.png
 ├── player1/
 │   ├── idle.png, walk.png, punch.png, close-punch.png
-│   ├── kick.png, fireball-pose.png, hit.png, block.png, victory.png
+│   ├── kick.png, fireball-pose.png, hit.png, block.png
+│   ├── victory.png, defeat.png
 ├── player2/
 │   └── (same as player1)
 └── fx/
