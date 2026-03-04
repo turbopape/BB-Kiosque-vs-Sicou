@@ -1807,22 +1807,40 @@ function drawMatchEnd() {
 }
 
 function drawLoadingScreen() {
-  ctx.fillStyle = '#0a0a1a';
+  ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#fff';
-  ctx.font = '24px monospace';
+
+  // Show splash image dimmed as backdrop
+  if (splashImg) {
+    ctx.globalAlpha = 0.4;
+    const scale = Math.max(W / splashImg.width, H / splashImg.height);
+    const sw = splashImg.width * scale;
+    const sh = splashImg.height * scale;
+    ctx.drawImage(splashImg, (W - sw) / 2, (H - sh) / 2, sw, sh);
+    ctx.globalAlpha = 1;
+  }
+
+  // Loading text with animated dots
+  const dots = '.'.repeat(Math.floor(frameCount / 20) % 4);
+  ctx.fillStyle = '#f1c40f';
+  ctx.font = 'bold 28px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('LOADING...', W / 2, H / 2 - 20);
+  ctx.fillText('LOADING' + dots, W / 2, H / 2 + 80);
 
   // Progress bar
-  const barW = 300, barH = 20;
-  const barX = (W - barW) / 2, barY = H / 2 + 10;
-  ctx.strokeStyle = '#fff';
+  const barW = 400, barH = 16;
+  const barX = (W - barW) / 2, barY = H / 2 + 100;
+  ctx.strokeStyle = '#f1c40f';
   ctx.lineWidth = 2;
   ctx.strokeRect(barX, barY, barW, barH);
   const progress = assetsTotal > 0 ? assetsLoaded / assetsTotal : 0;
-  ctx.fillStyle = '#e74c3c';
+  ctx.fillStyle = '#f1c40f';
   ctx.fillRect(barX + 2, barY + 2, (barW - 4) * progress, barH - 4);
+
+  // Percentage
+  ctx.fillStyle = '#888';
+  ctx.font = '14px monospace';
+  ctx.fillText(Math.floor(progress * 100) + '%', W / 2, barY + barH + 22);
 }
 
 function drawFightingScreen() {
