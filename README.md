@@ -4,6 +4,8 @@ A 2D fighting game inspired by my son Elyes (BB. Kiosque) and his friend Sarah (
 
 ![Bebe Kiosque VS Sicou](Bebe_Kiosque_VS_Sicou_Screenshot.png)
 
+**[Play it here!](https://turbopape.github.io/BB-Kiosque-vs-Sicou/)**
+
 ## The Original Drawings
 
 | BB. Kiosque (by Elyes) | Sicou (by Sarah) |
