@@ -1616,8 +1616,13 @@ function drawTitleScreen() {
   ctx.font = 'bold 24px monospace';
   const pulse = 0.5 + Math.sin(Date.now() / 300) * 0.5;
   ctx.globalAlpha = pulse;
-  ctx.fillText(gameState === 'help' ? 'PRESS SPACE TO RESUME' : 'PRESS ANY KEY TO START', W / 2, 640);
+  ctx.fillText(gameState === 'help' ? 'PRESS SPACE TO RESUME' : 'PRESS ANY KEY TO START', W / 2, 620);
   ctx.globalAlpha = 1;
+
+  // Credits
+  ctx.fillStyle = '#888';
+  ctx.font = '14px monospace';
+  ctx.fillText('Characters: BB. Kiosque by Elyes, Sicou by Sara', W / 2, 670);
 }
 
 function drawPauseControls() {
