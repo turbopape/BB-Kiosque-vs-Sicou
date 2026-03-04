@@ -49,7 +49,7 @@ const CONFIG = {
   JUMP_VELOCITY: -22,
   GRAVITY: 0.65,
 
-  HIT_STUN: 45,
+  HIT_STUN: 25,
   BLOCK_STUN: 20,
   BLOCK_DAMAGE_MULT: 0.2,
 
@@ -788,6 +788,7 @@ function createFighter(playerNum, startX, facingRight) {
     attackStartup: 0,
     attackActive: 0,
     attackRecovery: 0,
+    invincible: 0,
   };
 }
 
@@ -912,6 +913,7 @@ function updateFighter(fighter, input, opponent, fireballs) {
   fighter.stateTimer--;
   fighter.fireballCooldown = Math.max(0, fighter.fireballCooldown - 1);
   if (fighter.spriteFlash > 0) fighter.spriteFlash--;
+  if (fighter.invincible > 0) fighter.invincible--;
 
   // Auto-face opponent
   if (fighter.state !== 'hit') {
@@ -1039,6 +1041,7 @@ function updateFighter(fighter, input, opponent, fireballs) {
       if (fighter.stateTimer <= 0) {
         fighter.state = 'idle';
         fighter.canAct = true;
+        fighter.invincible = 45;
       }
       break;
 
@@ -1148,7 +1151,8 @@ function getBodyBox(fighter) {
   return { x: fighter.x + 15, y: fighter.y, w: fighter.width - 30, h: fighter.height };
 }
 
-function applyHit(fighter, damage) {
+function applyHit(fighter, damage, attacker) {
+  if (fighter.invincible > 0) return;
   if (fighter.state === 'blocking') {
     damage *= CONFIG.BLOCK_DAMAGE_MULT;
     fighter.x += (fighter.facingRight ? -CONFIG.PUSH_BACK / 2 : CONFIG.PUSH_BACK / 2);
@@ -1156,6 +1160,11 @@ function applyHit(fighter, damage) {
     fighter.spriteFlash = 4;
     fighter.stateTimer = CONFIG.BLOCK_STUN;
     fighter.canAct = false;
+    // Corner push: if defender is near a wall, push attacker back instead
+    if (attacker && (fighter.x <= CONFIG.STAGE_LEFT + 30 || fighter.x + fighter.width >= CONFIG.STAGE_RIGHT - 30)) {
+      const pushDir = attacker.facingRight ? -1 : 1;
+      attacker.x += pushDir * CONFIG.PUSH_BACK * 2;
+    }
     playBlockSound();
   } else {
     fighter.state = 'hit';
@@ -1177,7 +1186,7 @@ function checkCollisions(attacker, defender) {
   if (attacker.isAttacking && !attacker.hasHitThisAttack && attacker.attackHitbox) {
     const hb = getWorldHitbox(attacker);
     if (hb && rectsOverlap(hb, getBodyBox(defender))) {
-      applyHit(defender, attacker.attackDamage);
+      applyHit(defender, attacker.attackDamage, attacker);
       attacker.hasHitThisAttack = true;
       spawnHitSpark(hb.x + hb.w / 2, hb.y + hb.h / 2);
     }
@@ -1193,7 +1202,7 @@ function checkCollisions(attacker, defender) {
         h: fb.hitH,
       };
       if (rectsOverlap(fbHit, getBodyBox(defender))) {
-        applyHit(defender, fb.damage);
+        applyHit(defender, fb.damage, fb.owner);
         fb.alive = false;
         spawnHitSpark(fb.x + fb.width / 2, fb.y);
       }
@@ -1313,6 +1322,12 @@ function drawFighter(fighter) {
     ctx.translate(anchorX, anchorY);
     ctx.scale(1 - breath * 0.5, 1 + breath);
     ctx.translate(-anchorX, -anchorY);
+  }
+
+  // Invincibility blink — skip drawing every other frame
+  if (fighter.invincible > 0 && frameCount % 4 < 2) {
+    ctx.restore();
+    return;
   }
 
   if (sprite) {
