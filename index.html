@@ -98,6 +98,10 @@ const ASSET_PATHS = {
     fireballP1: 'assets/fx/fireball-p1.png',
     fireballP2: 'assets/fx/fireball-p2.png',
     hitSpark: 'assets/fx/hit-spark.png',
+  },
+  referee: {
+    idle: 'assets/referee/idle.png',
+    shocked: 'assets/referee/shocked.png',
   }
 };
 
@@ -300,6 +304,59 @@ function generatePlaceholders() {
     hsx.restore();
   }
   if (!getNestedImage('fx.hitSpark')) setNestedImage('fx.hitSpark', hsc);
+
+  // Referee placeholder (Sensei Jmal the Karate Camel)
+  function makeRefSprite(pose) {
+    const c = document.createElement('canvas');
+    c.width = 80; c.height = 140;
+    const cx = c.getContext('2d');
+    // Body
+    cx.fillStyle = '#c8a86e';
+    cx.fillRect(20, 30, 40, 70);
+    // Head (camel-ish)
+    cx.beginPath();
+    cx.ellipse(40, 22, 18, 20, 0, 0, Math.PI * 2);
+    cx.fill();
+    // Snout
+    cx.fillRect(50, 15, 15, 12);
+    // Legs
+    cx.fillRect(22, 100, 14, 40);
+    cx.fillRect(44, 100, 14, 40);
+    // Headband
+    cx.fillStyle = '#e74c3c';
+    cx.fillRect(22, 12, 36, 5);
+    if (pose === 'shocked') {
+      // Wide eyes, open mouth
+      cx.fillStyle = '#fff';
+      cx.beginPath(); cx.arc(34, 20, 6, 0, Math.PI * 2); cx.fill();
+      cx.beginPath(); cx.arc(48, 20, 6, 0, Math.PI * 2); cx.fill();
+      cx.fillStyle = '#000';
+      cx.beginPath(); cx.arc(34, 20, 3, 0, Math.PI * 2); cx.fill();
+      cx.beginPath(); cx.arc(48, 20, 3, 0, Math.PI * 2); cx.fill();
+      cx.fillStyle = '#600';
+      cx.beginPath(); cx.ellipse(42, 32, 5, 4, 0, 0, Math.PI * 2); cx.fill();
+      // Raised arms
+      cx.fillStyle = '#c8a86e';
+      cx.fillRect(2, 25, 18, 12);
+      cx.fillRect(60, 25, 18, 12);
+    } else {
+      // Calm eyes
+      cx.fillStyle = '#000';
+      cx.beginPath(); cx.arc(34, 20, 3, 0, Math.PI * 2); cx.fill();
+      cx.beginPath(); cx.arc(48, 20, 3, 0, Math.PI * 2); cx.fill();
+      // Arms crossed
+      cx.fillStyle = '#c8a86e';
+      cx.fillRect(10, 50, 60, 10);
+    }
+    // Label
+    cx.fillStyle = '#fff';
+    cx.font = 'bold 9px monospace';
+    cx.textAlign = 'center';
+    cx.fillText('JMAL', 40, 80);
+    return c;
+  }
+  if (!getNestedImage('referee.idle')) setNestedImage('referee.idle', makeRefSprite('idle'));
+  if (!getNestedImage('referee.shocked')) setNestedImage('referee.shocked', makeRefSprite('shocked'));
 }
 
 async function loadAssets() {
@@ -1178,6 +1235,7 @@ function applyHit(fighter, damage, attacker) {
     fighter.spriteFlash = 6;
     fighter.currentSprite = 'hit';
     shakeIntensity = Math.max(shakeIntensity, damage * 0.6);
+    refereeShocked = CONFIG.HIT_STUN * 3;
     playHitSound();
   }
 }
@@ -1216,6 +1274,7 @@ function checkCollisions(attacker, defender) {
 // ============================================================
 const particles = [];
 let shakeIntensity = 0;
+let refereeShocked = 0;
 
 function spawnHitSpark(x, y) {
   // Spawn the hit-spark sprite as a particle
@@ -1329,6 +1388,20 @@ function drawBackground() {
     ctx.stroke();
     ctx.restore();
   }
+}
+
+function drawReferee() {
+  if (refereeShocked > 0) refereeShocked--;
+  const refSet = images.referee;
+  if (!refSet) return;
+  const sprite = refereeShocked > 0 ? (refSet.shocked || refSet.idle) : refSet.idle;
+  if (!sprite) return;
+  // Draw centered, near the sand/water border, same scale as fighters
+  const refW = 180;
+  const refH = 300;
+  const refX = W / 2 - refW / 2;
+  const refY = CONFIG.GROUND_Y - 80;
+  ctx.drawImage(sprite, refX, refY, refW, refH);
 }
 
 function drawFighter(fighter) {
@@ -1688,7 +1761,7 @@ function drawTitleScreen() {
   // Credits
   ctx.fillStyle = '#888';
   ctx.font = '14px monospace';
-  ctx.fillText('Characters: BB. Kiosque by Elyes, Sicou by Sara', W / 2, 670);
+  ctx.fillText('Characters: BB. Kiosque & Sensei Jmal by Elyes, Sicou by Sara', W / 2, 670);
 }
 
 function drawPauseControls() {
@@ -1742,6 +1815,7 @@ function drawPauseControls() {
 
 function drawRoundAnnounce() {
   drawBackground();
+  drawReferee();
   drawFighter(p1);
   drawFighter(p2);
   drawHUD();
@@ -1764,6 +1838,7 @@ function drawRoundAnnounce() {
 
 function drawRoundResult() {
   drawBackground();
+  drawReferee();
   drawFighter(p1);
   drawFighter(p2);
   drawHUD();
@@ -1786,6 +1861,7 @@ function drawRoundResult() {
 
 function drawMatchEnd() {
   drawBackground();
+  drawReferee();
   drawFighter(p1);
   drawFighter(p2);
   drawHUD();
@@ -1856,6 +1932,7 @@ function drawFightingScreen() {
   }
 
   drawBackground();
+  drawReferee();
   drawFireballs();
   drawFighter(p1);
   drawFighter(p2);

@@ -86,6 +86,18 @@ Base: Sicou is an upright stacked ice-cream-cone shape made of chunky rounded bl
 
 ---
 
+## Referee — Sensei Jmal Sprites (100x150 each)
+
+Base: Sensei Jmal is a yellow camel on all fours — a goofy four-legged camel with bright yellow skin, a long neck, a wide toothy grin, round hooves, and a round ball-tipped tail. He has a white karate gi draped over his hump like a dome or shell on his back, with a black belt line across it. The gi sits on top of his hump, not worn like a human would. He has four chunky legs with round hooves. The style is a wobbly pencil/marker drawing from a child's sketchbook, matching the other characters — thick crayon outlines, playful imperfections. The character must contain absolutely no magenta, hot pink, or #FF00FF tones anywhere on its body — these colors are reserved exclusively for the background chroma key.
+
+**`assets/referee/idle.png`**
+> Sensei Jmal the karate camel standing calmly on all four legs, observing the fight with a dignified wise expression. He is a bright yellow camel with a long neck extending forward, small calm half-closed eyes, and a subtle knowing grin showing a few goofy teeth. A white karate gi is draped over his large hump like a dome or shell, with a black belt line and a pencil-drawn cross pattern on it. He has four chunky yellow legs with round hooves planted firmly on the ground, and a round ball-tipped tail at the back. His posture is perfectly still and composed — a respectable four-legged sensei. The style is a wobbly pencil/marker drawing from a child's sketchbook, with thick crayon outlines and playful color bleed. The character must contain absolutely no magenta, hot pink, or #FF00FF tones. Background: pure flat magenta (#FF00FF). Image dimensions: 100x150px.
+
+**`assets/referee/shocked.png`**
+> Sensei Jmal the karate camel reacting in shock on all four legs — his long neck snaps upward, eyes wide open as huge circles, mouth agape showing all his goofy teeth in a comical gasp. His four chunky yellow legs splay outward slightly in surprise, hooves skidding. The white karate gi on his hump shifts and flaps. His round ball-tipped tail stands straight up in alarm. The whole body language screams exaggerated cartoon shock, like a double-take. The style is a wobbly pencil/marker drawing from a child's sketchbook, with thick crayon outlines and playful color bleed. The character must contain absolutely no magenta, hot pink, or #FF00FF tones. Background: pure flat magenta (#FF00FF). Image dimensions: 100x150px.
+
+---
+
 ## FX Sprites
 
 **`assets/fx/fireball-p1.png`** (60x30)

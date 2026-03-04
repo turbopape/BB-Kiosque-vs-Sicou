@@ -10,9 +10,9 @@ A 2D fighting game inspired by my son Elyes (BB. Kiosque) and his friend Sarah (
 
 ## The Original Drawings
 
-| BB. Kiosque (by Elyes) | Sicou (by Sarah) |
-|:-:|:-:|
-| ![BB Kiosque](BB%20Kiosque.jpeg) | ![Sicou](Sicou.jpeg) |
+| BB. Kiosque (by Elyes) | Sicou (by Sarah) | Sensei Jmal (by Elyes) |
+|:-:|:-:|:-:|
+| ![BB Kiosque](BB%20Kiosque.jpeg) | ![Sicou](Sicou.jpeg) | ![Sensei Jmal](sensei-Jmal.jpeg) |
 
 ## How to Play
 

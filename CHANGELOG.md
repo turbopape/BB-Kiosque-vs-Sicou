@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.0] - 2026-03-04
+
+### Added
+- Sensei Jmal the karate camel referee — watches the fight, gets shocked on hits
+- Roaring engine splash sound with two-note power chord finale
+- Title screen 80s chiptune BGM
+- Flapping birds in the sky and animated wave ripple on background
+- Improved loading screen with splash backdrop and progress percentage
+- BB. Kiosque cat head favicon
+- Character credits on title screen (BB. Kiosque & Sensei Jmal by Elyes, Sicou by Sara)
+
+### Fixed
+- Anti-corner-trap: invincibility frames after hit recovery (45 frames with blinking)
+- Corner push: blocked attacks near walls push attacker back
+- Shorter hit stun (25 frames) for faster recovery
+
+---
+
 ## [0.1.0] - 2026-03-04
 
 ### Added
