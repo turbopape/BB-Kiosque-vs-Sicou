@@ -13,6 +13,8 @@
 - Screen shake and hit spark sprite particle effects
 - Pause/help screen (Space bar) with controls overlay
 - Fireball limit (3 per round) with fiery HUD token indicators
+- Splash screen with fade-in/hold/fade-out on game start (skippable)
+- Flashy yellow title menu replacing old text title
 - Idle breathing animation via subtle sprite scaling
 - Defeat and victory pose sprites
 - Block stun and heavier hit stun for dramatic impact

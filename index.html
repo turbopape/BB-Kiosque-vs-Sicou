@@ -104,6 +104,7 @@ const images = {};
 let assetsLoaded = 0;
 let assetsTotal = 0;
 let assetsReady = false;
+let splashImg = null;
 
 function flattenPaths(obj, prefix = '') {
   const entries = [];
@@ -301,10 +302,18 @@ function generatePlaceholders() {
 }
 
 async function loadAssets() {
+  // Load splash screen first
+  splashImg = await new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = 'splash-screen.png';
+  });
+
   const entries = flattenPaths(ASSET_PATHS);
   assetsTotal = entries.length;
 
-  // Try loading real SVGs first
+  // Try loading real assets
   const results = await Promise.all(entries.map(([key, src]) =>
     new Promise(resolve => {
       const img = new Image();
@@ -1254,7 +1263,9 @@ function drawHUD() {
 // ============================================================
 // GAME STATE
 // ============================================================
-let gameState = 'loading'; // loading | title | roundStart | fighting | roundEnd | matchEnd
+let gameState = 'loading'; // loading | splash | title | roundStart | fighting | roundEnd | matchEnd
+let splashAlpha = 0;
+let splashTimer = 0;
 let p1, p2;
 let p1Wins = 0, p2Wins = 0;
 let roundNumber = 0;
@@ -1360,21 +1371,18 @@ function drawTitleScreen() {
   ctx.fillStyle = '#0a0a1a';
   ctx.fillRect(0, 0, W, H);
 
-  // Title
-  ctx.fillStyle = '#e74c3c';
-  ctx.font = 'bold 72px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('BEBE KIOSQUE VS SICOU', W / 2, 200);
+  // Splash image as title header
+  if (splashImg) {
+    const imgH = 280;
+    const imgW = imgH * (splashImg.width / splashImg.height);
+    ctx.drawImage(splashImg, (W - imgW) / 2, 10, imgW, imgH);
+  }
 
-  // Subtitle
+  // Controls header — flashy yellow
   ctx.fillStyle = '#f1c40f';
-  ctx.font = 'bold 32px monospace';
-  ctx.fillText('PLACEHOLDER EDITION', W / 2, 260);
-
-  // Controls
-  ctx.fillStyle = '#aaa';
-  ctx.font = '18px monospace';
-  const controlsY = 340;
+  ctx.font = 'bold 20px monospace';
+  ctx.textAlign = 'center';
+  const controlsY = 310;
   ctx.fillText('— CONTROLS —', W / 2, controlsY);
 
   ctx.textAlign = 'left';
@@ -1383,9 +1391,9 @@ function drawTitleScreen() {
   const col2 = W / 2 + 60;
   const lh = 28;
 
-  ctx.fillStyle = '#e74c3c';
+  ctx.fillStyle = '#f1c40f';
   ctx.fillText('BB. KIOSQUE', col1, controlsY + 40);
-  ctx.fillStyle = '#ccc';
+  ctx.fillStyle = '#ffe066';
   ctx.fillText('A / D       Move', col1, controlsY + 40 + lh);
   ctx.fillText('W           Jump', col1, controlsY + 40 + lh * 2);
   ctx.fillText('F           Punch', col1, controlsY + 40 + lh * 3);
@@ -1393,9 +1401,9 @@ function drawTitleScreen() {
   ctx.fillText('H           Fireball', col1, controlsY + 40 + lh * 5);
   ctx.fillText('S           Block', col1, controlsY + 40 + lh * 6);
 
-  ctx.fillStyle = '#3498db';
+  ctx.fillStyle = '#f1c40f';
   ctx.fillText('SICOU', col2, controlsY + 40);
-  ctx.fillStyle = '#ccc';
+  ctx.fillStyle = '#ffe066';
   ctx.fillText('← / →       Move', col2, controlsY + 40 + lh);
   ctx.fillText('↑            Jump', col2, controlsY + 40 + lh * 2);
   ctx.fillText('J            Punch', col2, controlsY + 40 + lh * 3);
@@ -1403,13 +1411,13 @@ function drawTitleScreen() {
   ctx.fillText('L            Fireball', col2, controlsY + 40 + lh * 5);
   ctx.fillText('↓            Block', col2, controlsY + 40 + lh * 6);
 
-  // Prompt
+  // Prompt — pulsing yellow
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = '#f1c40f';
   ctx.font = 'bold 24px monospace';
   const pulse = 0.5 + Math.sin(Date.now() / 300) * 0.5;
   ctx.globalAlpha = pulse;
-  ctx.fillText(gameState === 'help' ? 'PRESS SPACE TO RESUME' : 'PRESS ANY KEY TO START', W / 2, 620);
+  ctx.fillText(gameState === 'help' ? 'PRESS SPACE TO RESUME' : 'PRESS ANY KEY TO START', W / 2, 640);
   ctx.globalAlpha = 1;
 }
 
@@ -1593,9 +1601,41 @@ function gameLoop(timestamp) {
     case 'loading':
       drawLoadingScreen();
       if (assetsReady) {
+        splashAlpha = 0;
+        splashTimer = 0;
+        gameState = 'splash';
+      }
+      break;
+
+    case 'splash': {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+      splashTimer++;
+      // Fade in over 90 frames (1.5s)
+      if (splashTimer <= 90) {
+        splashAlpha = splashTimer / 90;
+      } else if (splashTimer <= 210) {
+        splashAlpha = 1; // Hold for 2s
+      } else if (splashTimer <= 270) {
+        splashAlpha = 1 - (splashTimer - 210) / 60; // Fade out over 1s
+      } else {
+        gameState = 'title';
+      }
+      if (splashImg) {
+        ctx.globalAlpha = splashAlpha;
+        // Draw splash centered and scaled to fill
+        const scale = Math.max(W / splashImg.width, H / splashImg.height);
+        const sw = splashImg.width * scale;
+        const sh = splashImg.height * scale;
+        ctx.drawImage(splashImg, (W - sw) / 2, (H - sh) / 2, sw, sh);
+        ctx.globalAlpha = 1;
+      }
+      // Allow skipping with any key
+      if (splashTimer > 30 && anyKeyJustPressed()) {
         gameState = 'title';
       }
       break;
+    }
 
     case 'title':
       drawTitleScreen();
