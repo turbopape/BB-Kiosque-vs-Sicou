@@ -860,6 +860,9 @@ function updateFighter(fighter, input, opponent, fireballs) {
 // PUSH COLLISION (prevent overlap)
 // ============================================================
 function pushFightersApart(f1, f2) {
+  // Allow jump-over: skip push when either fighter is airborne
+  if (f1.airborne || f2.airborne) return;
+
   const overlap = (f1.x + f1.width) - f2.x;
   if (f1.x < f2.x && overlap > 0) {
     const half = overlap / 2;
@@ -1127,7 +1130,18 @@ function drawFireballs() {
   for (const fb of fireballs) {
     const sprite = images.fx ? images.fx[fb.sprite] : null;
     if (sprite) {
+      ctx.save();
+      // P1 fireball faces right by default, flip if going left
+      // P2 fireball faces left by default, flip if going right
+      const needsFlip = (fb.sprite === 'fireballP1' && fb.speed < 0) ||
+                         (fb.sprite === 'fireballP2' && fb.speed > 0);
+      if (needsFlip) {
+        ctx.translate(fb.x + fb.width / 2, 0);
+        ctx.scale(-1, 1);
+        ctx.translate(-(fb.x + fb.width / 2), 0);
+      }
       ctx.drawImage(sprite, fb.x, fb.y, fb.width, fb.height);
+      ctx.restore();
     }
   }
 }
