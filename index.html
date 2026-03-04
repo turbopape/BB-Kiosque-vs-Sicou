@@ -1083,8 +1083,13 @@ function drawFighter(fighter) {
   const drawW = fighter.width;
   const drawH = fighter.height;
 
-  if (!fighter.facingRight) {
-    // Flip horizontally
+  if (fighter.playerNum === 1 && !fighter.facingRight) {
+    // Only flip Player 1 sprites (they face right by default)
+    ctx.translate(drawX + drawW / 2, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-(drawX + drawW / 2), 0);
+  } else if (fighter.playerNum === 2 && fighter.facingRight) {
+    // Only flip Player 2 sprites (they face left by default)
     ctx.translate(drawX + drawW / 2, 0);
     ctx.scale(-1, 1);
     ctx.translate(-(drawX + drawW / 2), 0);
@@ -1366,6 +1371,55 @@ function drawTitleScreen() {
   ctx.globalAlpha = 1;
 }
 
+function drawPauseControls() {
+  // Title
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 48px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('PAUSED', W / 2, 160);
+
+  // Controls
+  ctx.fillStyle = '#aaa';
+  ctx.font = '18px monospace';
+  const controlsY = 240;
+  ctx.fillText('— CONTROLS —', W / 2, controlsY);
+
+  ctx.textAlign = 'left';
+  ctx.font = '16px monospace';
+  const col1 = W / 2 - 280;
+  const col2 = W / 2 + 60;
+  const lh = 28;
+
+  ctx.fillStyle = '#e74c3c';
+  ctx.fillText('BB. KIOSQUE', col1, controlsY + 40);
+  ctx.fillStyle = '#ccc';
+  ctx.fillText('A / D       Move', col1, controlsY + 40 + lh);
+  ctx.fillText('W           Jump', col1, controlsY + 40 + lh * 2);
+  ctx.fillText('F           Punch', col1, controlsY + 40 + lh * 3);
+  ctx.fillText('G           Kick', col1, controlsY + 40 + lh * 4);
+  ctx.fillText('H           Fireball', col1, controlsY + 40 + lh * 5);
+  ctx.fillText('S           Block', col1, controlsY + 40 + lh * 6);
+
+  ctx.fillStyle = '#3498db';
+  ctx.fillText('SICOU', col2, controlsY + 40);
+  ctx.fillStyle = '#ccc';
+  ctx.fillText('← / →       Move', col2, controlsY + 40 + lh);
+  ctx.fillText('↑            Jump', col2, controlsY + 40 + lh * 2);
+  ctx.fillText('J            Punch', col2, controlsY + 40 + lh * 3);
+  ctx.fillText('K            Kick', col2, controlsY + 40 + lh * 4);
+  ctx.fillText('L            Fireball', col2, controlsY + 40 + lh * 5);
+  ctx.fillText('↓            Block', col2, controlsY + 40 + lh * 6);
+
+  // Resume prompt
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 24px monospace';
+  const pulse = 0.5 + Math.sin(Date.now() / 300) * 0.5;
+  ctx.globalAlpha = pulse;
+  ctx.fillText('PRESS SPACE TO RESUME', W / 2, 620);
+  ctx.globalAlpha = 1;
+}
+
 function drawRoundAnnounce() {
   drawBackground();
   drawFighter(p1);
@@ -1471,6 +1525,15 @@ function drawFightingScreen() {
   drawHUD();
 
   ctx.restore();
+
+  // Blinking "SPACE = PAUSE" hint (drawn outside shake context)
+  const pulse = 0.4 + Math.sin(Date.now() / 500) * 0.4;
+  ctx.globalAlpha = pulse;
+  ctx.fillStyle = '#fff';
+  ctx.font = '16px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('SPACE = PAUSE', W / 2, H - 20);
+  ctx.globalAlpha = 1;
 }
 
 // ============================================================
@@ -1508,7 +1571,13 @@ function gameLoop(timestamp) {
       break;
 
     case 'help':
-      drawTitleScreen();
+      // Draw the frozen game behind
+      drawFightingScreen();
+      // Semi-transparent dark overlay
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(0, 0, W, H);
+      // Draw controls on top
+      drawPauseControls();
       if (keysJustPressed.has('Space')) {
         gameState = 'fighting';
       }
