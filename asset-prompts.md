@@ -106,5 +106,8 @@ Base: Sensei Jmal is a yellow camel on all fours — a goofy four-legged camel w
 **`assets/fx/fireball-p2.png`** (60x30)
 > A wobbly hand-drawn energy ball, like a kid drew a fireball with blue and cyan crayons. Messy circular shape with scribbly electric trails. Glowing center. Pencil-drawn style matching the characters. Pure plain magenta (#FF00FF) background, 60x30px.
 
+**`assets/fx/flybot.png`** (50x50)
+> A tiny Mazinger Z-style flying robot seen from the side, zooming through the sky. Compact chunky body in blue and red, small angular wings spread out, yellow glowing eyes, and little flame trails from its feet. The style is a wobbly pencil/marker drawing from a child's sketchbook, matching the other characters. The robot faces to the right. Pure plain magenta (#FF00FF) background, 50x50px.
+
 **`assets/fx/hit-spark.png`** (60x60)
 > A comic-book style impact burst drawn in wobbly pencil kid style. Jagged star shape with "POW" or "BAM" scribbled inside. Yellow and white crayon colors. Pure plain magenta (#FF00FF) background, 60x60px.

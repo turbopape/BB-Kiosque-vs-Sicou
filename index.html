@@ -98,6 +98,7 @@ const ASSET_PATHS = {
     fireballP1: 'assets/fx/fireball-p1.png',
     fireballP2: 'assets/fx/fireball-p2.png',
     hitSpark: 'assets/fx/hit-spark.png',
+    flybot: 'assets/fx/flybot.png',
   },
   referee: {
     idle: 'assets/referee/idle.png',
@@ -304,6 +305,33 @@ function generatePlaceholders() {
     hsx.restore();
   }
   if (!getNestedImage('fx.hitSpark')) setNestedImage('fx.hitSpark', hsc);
+
+  // Flybot placeholder (tiny Mazinger Z-style robot)
+  if (!getNestedImage('fx.flybot')) {
+    const fbc = document.createElement('canvas');
+    fbc.width = 40; fbc.height = 30;
+    const fbx = fbc.getContext('2d');
+    // Body
+    fbx.fillStyle = '#2244aa';
+    fbx.fillRect(12, 8, 16, 16);
+    // Head
+    fbx.fillStyle = '#cc2222';
+    fbx.fillRect(15, 2, 10, 8);
+    // Wings
+    fbx.fillStyle = '#888';
+    fbx.fillRect(0, 10, 12, 5);
+    fbx.fillRect(28, 10, 12, 5);
+    // Eyes
+    fbx.fillStyle = '#ff0';
+    fbx.fillRect(17, 4, 3, 3);
+    fbx.fillRect(22, 4, 3, 3);
+    // Flame trail
+    fbx.fillStyle = '#f80';
+    fbx.fillRect(16, 24, 4, 6);
+    fbx.fillStyle = '#ff0';
+    fbx.fillRect(22, 24, 4, 6);
+    setNestedImage('fx.flybot', fbc);
+  }
 
   // Referee placeholder (Sensei Jmal the Karate Camel)
   function makeRefSprite(pose) {
@@ -1390,6 +1418,48 @@ function drawBackground() {
   }
 }
 
+// Flybot — tiny Mazinger Z robot that flies across the sky at random times
+const flybot = { active: false, x: 0, y: 0, speed: 0, dir: 1, cooldown: 600 + Math.floor(Math.random() * 900) };
+
+function updateAndDrawFlybot() {
+  const sprite = images.fx ? images.fx.flybot : null;
+  if (!sprite) return;
+
+  if (!flybot.active) {
+    flybot.cooldown--;
+    if (flybot.cooldown <= 0) {
+      flybot.active = true;
+      flybot.dir = Math.random() < 0.5 ? 1 : -1;
+      flybot.x = flybot.dir === 1 ? -60 : W + 60;
+      flybot.y = 20 + Math.random() * 200;
+      flybot.speed = 1 + Math.random() * 1.5;
+    }
+    return;
+  }
+
+  flybot.x += flybot.speed * flybot.dir;
+
+  // Off screen — deactivate and set new random cooldown
+  if ((flybot.dir === 1 && flybot.x > W + 60) || (flybot.dir === -1 && flybot.x < -60)) {
+    flybot.active = false;
+    flybot.cooldown = 600 + Math.floor(Math.random() * 900);
+    return;
+  }
+
+  // Draw with slight bob — bigger when lower (perspective)
+  const bob = Math.sin(frameCount * 0.15) * 3;
+  const depth = (flybot.y - 20) / 200; // 0 = top, 1 = low
+  const drawSize = 120 + depth * 80;
+  ctx.save();
+  if (flybot.dir === -1) {
+    ctx.translate(flybot.x, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-flybot.x, 0);
+  }
+  ctx.drawImage(sprite, flybot.x - drawSize / 2, flybot.y + bob - drawSize / 2, drawSize, drawSize);
+  ctx.restore();
+}
+
 function drawReferee() {
   if (refereeShocked > 0) refereeShocked--;
   const refSet = images.referee;
@@ -1932,6 +2002,7 @@ function drawFightingScreen() {
   }
 
   drawBackground();
+  updateAndDrawFlybot();
   drawReferee();
   drawFireballs();
   drawFighter(p1);

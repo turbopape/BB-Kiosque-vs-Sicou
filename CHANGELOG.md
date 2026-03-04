@@ -10,6 +10,7 @@
 - Improved loading screen with splash backdrop and progress percentage
 - BB. Kiosque cat head favicon
 - Character credits on title screen (BB. Kiosque & Sensei Jmal by Elyes, Sicou by Sara)
+- Mazinger Z-style flybot randomly flies across the sky with perspective scaling
 
 ### Fixed
 - Anti-corner-trap: invincibility frames after hit recovery (45 frames with blinking)
