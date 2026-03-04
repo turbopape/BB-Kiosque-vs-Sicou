@@ -2,6 +2,8 @@
 
 A 2D fighting game inspired by my son Elyes (BB. Kiosque) and his friend Sarah (Sicou) at school. Built as a single HTML file with JavaScript canvas rendering, PNG sprite support, and procedural retro sound effects. Two players battle it out locally with punches, kicks, fireballs, and blocks.
 
+![Bebe Kiosque VS Sicou](Bebe_Kiosque_VS_Sicou_Screenshot.png)
+
 ## The Original Drawings
 
 | BB. Kiosque (by Elyes) | Sicou (by Sarah) |
