@@ -2188,7 +2188,8 @@ function gameLoop(timestamp) {
     case 'matchEnd':
       drawMatchEnd();
       if (anyKeyJustPressed()) {
-        startNewMatch();
+        gameState = 'title';
+        startTitleBGM();
       }
       break;
   }

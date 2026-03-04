@@ -11,6 +11,8 @@
 - BB. Kiosque cat head favicon
 - Character credits on title screen (BB. Kiosque & Sensei Jmal by Elyes, Sicou by Sara)
 - Mazinger Z-style flybot randomly flies across the sky with perspective scaling
+- CSS preloader spinner visible during initial page load
+- Match end returns to title screen instead of auto-restarting
 
 ### Fixed
 - Anti-corner-trap: invincibility frames after hit recovery (45 frames with blinking)
