@@ -816,7 +816,7 @@ const keysJustPressed = new Set();
 window.addEventListener('keydown', e => {
   const gameKeys = ['KeyA','KeyD','KeyS','KeyW','KeyF','KeyG','KeyH',
     'ArrowLeft','ArrowRight','ArrowDown','ArrowUp','KeyJ','KeyK','KeyL',
-    'Numpad1','Numpad2','Numpad3','Space','Enter'];
+    'Numpad1','Numpad2','Numpad3','Space','Enter','Escape'];
   if (gameKeys.includes(e.code)) e.preventDefault();
 
   if (!keysDown.has(e.code)) keysJustPressed.add(e.code);
@@ -1894,8 +1894,12 @@ function drawPauseControls() {
   ctx.font = 'bold 24px monospace';
   const pulse = 0.5 + Math.sin(Date.now() / 300) * 0.5;
   ctx.globalAlpha = pulse;
-  ctx.fillText('PRESS SPACE TO RESUME', W / 2, 620);
+  ctx.fillText('PRESS SPACE TO RESUME', W / 2, 600);
   ctx.globalAlpha = 1;
+
+  ctx.fillStyle = '#888';
+  ctx.font = '18px monospace';
+  ctx.fillText('ESC — QUIT TO TITLE', W / 2, 650);
 }
 
 function drawRoundAnnounce() {
@@ -2146,6 +2150,11 @@ function gameLoop(timestamp) {
       drawPauseControls();
       if (keysJustPressed.has('Space')) {
         gameState = 'fighting';
+      }
+      if (keysJustPressed.has('Escape')) {
+        stopBGM();
+        gameState = 'title';
+        startTitleBGM();
       }
       break;
 
